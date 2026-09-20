@@ -1,0 +1,13 @@
+# DEV image only (local tooling: composer/artisan/npm via `docker run`).
+# Not meant for production - see the `Dockerfile` at the repo root for that.
+FROM php:8.4-cli-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libicu-dev libpq-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev libexif-dev unzip git \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql intl bcmath exif gd zip pcntl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app

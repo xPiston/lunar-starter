@@ -1,0 +1,30 @@
+.git
+.github
+
+# Never in an image: secrets/local config.
+.env
+.env.*
+!.env.example
+
+# Regenerated inside the build (composer install / npm run build).
+vendor
+node_modules
+public/build
+public/hot
+bootstrap/ssr
+
+# Recreated by the Dockerfile (mkdir -p): no need to copy them from the host.
+storage/app
+storage/framework
+storage/logs
+storage/phpstan
+storage/pail
+bootstrap/cache/*.php
+
+# Local dev tooling (docker-compose.yml points at it), unrelated to the
+# production image.
+docker/php/Dockerfile.dev
+bin
+
+.phpunit.result.cache
+.DS_Store

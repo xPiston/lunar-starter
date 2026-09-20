@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Application\Checkout;
+
+use App\Domain\Checkout\Port\CheckoutGateway;
+
+final readonly class SelectShippingOption
+{
+    public function __construct(private CheckoutGateway $gateway) {}
+
+    public function handle(string $identifier): void
+    {
+        $this->gateway->selectShippingOption($identifier);
+    }
+}

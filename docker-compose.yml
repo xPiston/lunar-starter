@@ -1,0 +1,36 @@
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16: the database required by Lunar (no SQLite support).
+  # Used both for local dev (php artisan serve) and for tests (separate
+  # "app_testing" database, see phpunit.xml).
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5436:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Mailpit: catches every outgoing email locally instead of sending it for
+  # real. Web UI at http://localhost:8025, SMTP on 1025 (matches MAIL_HOST/
+  # MAIL_PORT in .env.example). Never used in production - see the README's
+  # "Transactional email" section for real providers.
+  # ---------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  db-data:
