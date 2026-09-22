@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Storefront;
 use App\Application\Account\LookupGuestOrder;
 use App\Application\Account\OrderNotFoundException;
 use App\Http\Controllers\Controller;
+use App\Http\Seo\PageMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -28,7 +29,12 @@ final class GuestOrderLookupController extends Controller
 
     public function show(): Response
     {
-        return Inertia::render('storefront/orders/lookup');
+        return Inertia::render('storefront/orders/lookup', [
+            'meta' => (new PageMeta(
+                title: 'Track your order',
+                description: 'Look up an order with its reference and the email address used at checkout.',
+            ))->toArray(),
+        ]);
     }
 
     public function find(Request $request, LookupGuestOrder $lookupGuestOrder): RedirectResponse
@@ -60,6 +66,7 @@ final class GuestOrderLookupController extends Controller
         }
 
         return Inertia::render('storefront/orders/lookup-result', [
+            'meta' => (new PageMeta(title: 'Order details', description: 'Your order details.', noindex: true))->toArray(),
             'order' => $order,
         ]);
     }

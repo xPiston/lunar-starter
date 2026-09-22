@@ -12,6 +12,7 @@ use App\Application\Checkout\SetShippingAddress;
 use App\Application\Checkout\ShowCheckout;
 use App\Domain\Checkout\CheckoutFailedException;
 use App\Http\Controllers\Controller;
+use App\Http\Seo\PageMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -43,6 +44,7 @@ final class CheckoutController extends Controller
         return Inertia::render('storefront/checkout', [
             'cart' => $viewCart->handle()->toArray(),
             'checkout' => $showCheckout->handle()->toArray(),
+            'meta' => (new PageMeta(title: 'Checkout', description: 'Complete your order.', noindex: true))->toArray(),
         ]);
     }
 
@@ -139,6 +141,7 @@ final class CheckoutController extends Controller
 
         return Inertia::render('storefront/checkout-confirmation', [
             'order' => $order,
+            'meta' => (new PageMeta(title: 'Order confirmed', description: 'Your order is confirmed.', noindex: true))->toArray(),
         ]);
     }
 

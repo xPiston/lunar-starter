@@ -38,6 +38,18 @@ interface ProductCatalog
     public function findBySlug(string $slug): ?Product;
 
     /**
+     * Slugs of every published product, for callers that need the shape of the
+     * catalogue rather than its contents (a sitemap, a cache warmer).
+     *
+     * Deliberately not `listFeatured()` with a large limit: that builds a full
+     * ProductSummary per row, and resolving a price per variant across the
+     * whole catalogue is far more work than the caller asked for.
+     *
+     * @return string[]
+     */
+    public function listPublishedSlugs(): array;
+
+    /**
      * @return CollectionSummary[]
      */
     public function listCollections(): array;

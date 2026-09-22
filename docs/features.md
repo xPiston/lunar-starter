@@ -174,6 +174,34 @@ the missing storefront half: a coupon code field.
   [Remove]" once one's set — no discount breakdown by line, since Lunar
   already shows that in its own order/cart admin views.
 
+## SEO
+
+Metadata is rendered by `resources/views/app.blade.php`, from a `meta` prop
+each controller supplies (`App\Http\Seo\PageMeta`). **Server-side on
+purpose**: Inertia's own `<Head>` patches the DOM after the JS boots, which
+Google tolerates but no social crawler does - Facebook, Slack, WhatsApp and
+LinkedIn read the HTML as served and never run scripts. Anything that has to
+survive being shared has to come out of Blade.
+
+- Every response carries a title, description, canonical URL, Open Graph and
+  Twitter Card tags. `HandleInertiaRequests` shares a default built from
+  `config/seo.php`, so a page that says nothing still ships complete metadata.
+- Product pages add the parts that matter for a shop: the full-size photo as
+  the share image (not the thumbnail - previews render around 1200x630), JSON-LD
+  `Product` structured data with price and stock availability, and the
+  `product:price:*` Open Graph properties Facebook and Pinterest read.
+- Carts, checkout, order pages and search results are `noindex, nofollow` -
+  thin, duplicated or private, and nothing you want crawlers spending budget
+  on. Covered by `tests/Feature/Storefront/SeoTest.php`, which asserts against
+  the rendered HTML rather than the props.
+- `/sitemap.xml` and `/robots.txt` are generated (`SitemapController`), not
+  static files: the sitemap follows the catalogue, and robots.txt has to name
+  the sitemap with an absolute URL that depends on `APP_URL`. A static file in
+  `public/` would also be served before ever reaching PHP.
+
+Set `APP_NAME`, `SEO_DESCRIPTION` and `SEO_IMAGE` (an absolute URL to a
+1200x630 PNG or JPEG - crawlers won't render SVG) for your own store.
+
 ## Known limitations
 
 - Live carrier rate lookups (USPS/UPS/DHL APIs, real-time quotes) aren't

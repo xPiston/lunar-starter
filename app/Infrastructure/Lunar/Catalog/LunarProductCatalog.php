@@ -112,6 +112,22 @@ final class LunarProductCatalog implements ProductCatalog
         return $product ? $this->mapper->toDomain($product) : null;
     }
 
+    public function listPublishedSlugs(): array
+    {
+        $productIds = LunarProduct::query()
+            ->status('published')
+            ->channel(StorefrontSession::getChannel())
+            ->pluck('id');
+
+        return Url::query()
+            ->where('element_type', (new LunarProduct)->getMorphClass())
+            ->whereIn('element_id', $productIds)
+            ->where('default', true)
+            ->pluck('slug')
+            ->map(static fn (string $slug): string => $slug)
+            ->all();
+    }
+
     public function listCollections(): array
     {
         $collections = LunarCollection::query()

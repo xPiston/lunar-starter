@@ -13,6 +13,7 @@ use App\Application\Cart\ViewCart;
 use App\Domain\Cart\CartLineException;
 use App\Domain\Cart\InvalidCouponException;
 use App\Http\Controllers\Controller;
+use App\Http\Seo\PageMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,6 +24,7 @@ final class CartController extends Controller
     public function show(ViewCart $viewCart): Response
     {
         return Inertia::render('storefront/cart', [
+            'meta' => (new PageMeta(title: 'Your cart', description: 'Review the items in your cart before checking out.', noindex: true))->toArray(),
             'cart' => $viewCart->handle()->toArray(),
         ]);
     }

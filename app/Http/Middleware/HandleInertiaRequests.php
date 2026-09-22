@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Application\Cart\CountCartItems;
 use App\Application\Catalog\ListCollections;
 use App\Domain\Catalog\CollectionSummary;
+use App\Http\Seo\PageMeta;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -56,6 +57,10 @@ class HandleInertiaRequests extends Middleware
             // App\Domain\Cart\Port\CartGateway::currentItemCount().
             'cartItemCount' => app(CountCartItems::class)->handle(),
             'navCollections' => fn (): array => $this->navCollections($request),
+            // Overridden per page by controllers that know better; shared
+            // so no response ever ships without a title and description.
+            // Rendered server-side by app.blade.php - see PageMeta.
+            'meta' => PageMeta::default()->toArray(),
         ]);
     }
 

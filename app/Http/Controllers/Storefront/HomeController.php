@@ -9,6 +9,7 @@ use App\Application\Catalog\ListFeaturedProducts;
 use App\Domain\Catalog\CollectionSummary;
 use App\Domain\Catalog\ProductSummary;
 use App\Http\Controllers\Controller;
+use App\Http\Seo\PageMeta;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,6 +26,11 @@ final class HomeController extends Controller
                 static fn (CollectionSummary $collection): array => $collection->toArray(),
                 $listCollections->handle(),
             ),
+            'meta' => (new PageMeta(
+                title: config('app.name').' - new arrivals',
+                description: config('seo.description'),
+                imageUrl: config('seo.image'),
+            ))->toArray(),
         ]);
     }
 }

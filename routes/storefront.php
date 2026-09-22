@@ -10,12 +10,19 @@ use App\Http\Controllers\Storefront\GuestOrderLookupController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\ProductController;
 use App\Http\Controllers\Storefront\SearchController;
+use App\Http\Controllers\Storefront\SitemapController;
+use App\Http\Seo\PageMeta;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
 Route::get('/collections/{slug}', CollectionController::class)->name('collections.show');
 Route::get('/products/{slug}', ProductController::class)->name('products.show');
 Route::get('/search', SearchController::class)->name('search');
+
+// Generated, not static files in public/: the sitemap follows the catalogue,
+// and robots.txt needs the sitemap's absolute URL, which depends on APP_URL.
+Route::get('/sitemap.xml', [SitemapController::class, 'sitemap'])->name('sitemap');
+Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
 Route::get('/cart', [CartController::class, 'show'])->name('cart.show');
 Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
@@ -24,8 +31,12 @@ Route::get('/checkout/confirmation', [CheckoutController::class, 'confirmation']
 // Static content, no use case behind it - a controller would be pure
 // boilerplate here. See resources/js/pages/storefront/legal/* for the
 // "this is a placeholder, not legal advice" notice shown on both pages.
-Route::inertia('/terms', 'storefront/legal/terms')->name('legal.terms');
-Route::inertia('/privacy', 'storefront/legal/privacy')->name('legal.privacy');
+Route::inertia('/terms', 'storefront/legal/terms', [
+    'meta' => (new PageMeta(title: 'Terms of Service', description: 'The terms that apply to orders placed on this store.'))->toArray(),
+])->name('legal.terms');
+Route::inertia('/privacy', 'storefront/legal/privacy', [
+    'meta' => (new PageMeta(title: 'Privacy Policy', description: 'What this store collects, why, and what your rights are.'))->toArray(),
+])->name('legal.privacy');
 
 // Scoped to "the current user's own orders" by LunarOrderHistory itself
 // (see app/Domain/Account/Port/OrderHistory.php) - `auth` here only keeps
