@@ -8,13 +8,14 @@
 #
 # Extensions mirror what the app actually needs: pdo_pgsql/pgsql (Lunar has no
 # SQLite support), bcmath (money maths), gd + exif (product image
-# conversions), intl (number/date formatting), zip (composer), pcntl (queue
-# worker signals).
+# conversions, with webp so media-library conversions handle the format the
+# production image already supports), intl (number/date formatting), zip
+# (composer), pcntl (queue worker signals).
 FROM php:8.5-cli-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libicu-dev libpq-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev libexif-dev unzip git \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+        libicu-dev libpq-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev libwebp-dev libexif-dev unzip git \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql intl bcmath exif gd zip pcntl \
     && rm -rf /var/lib/apt/lists/*
 
