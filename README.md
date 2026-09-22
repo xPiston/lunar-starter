@@ -7,8 +7,8 @@
 Real payments, real shipping, real stock — behind an architecture
 you can actually refactor.
 
-[![Laravel](https://img.shields.io/badge/Laravel-12-FF2D20?logo=laravel&logoColor=white)](https://laravel.com)
-[![PHP](https://img.shields.io/badge/PHP-8.4-777BB4?logo=php&logoColor=white)](https://php.net)
+[![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?logo=laravel&logoColor=white)](https://laravel.com)
+[![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Lunar](https://img.shields.io/badge/Lunar-1.5-1F2937)](https://lunarphp.io)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![Tests](https://img.shields.io/badge/tests-69%20passing-22C55E)](docs/development.md#tests)
@@ -56,6 +56,8 @@ No PHP or Node on your machine? The `bin/` wrappers run everything in Docker.
 
 ```sh
 docker compose up -d                 # PostgreSQL + Mailpit
+docker build -f docker/php/Dockerfile.dev -t lunar-starter .
+
 ./bin/composer install
 cp .env.example .env && ./bin/artisan key:generate
 

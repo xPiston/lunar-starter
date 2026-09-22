@@ -19,6 +19,13 @@ Docker image (`docker/php/Dockerfile.dev`) and wrapper scripts (`bin/composer`,
 `bin/artisan`, `bin/php`, `bin/npm`, `bin/npx`) that run composer/artisan/npm
 in disposable containers, without installing anything on the machine.
 
+Build that image once before using the `bin/` wrappers (the npm ones use the
+official `node` image directly and need no build):
+
+```sh
+docker build -f docker/php/Dockerfile.dev -t lunar-starter .
+```
+
 ### Installation
 
 ```sh

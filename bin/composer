@@ -4,4 +4,4 @@ exec docker run --rm --network host \
   -e COMPOSER_HOME=/tmp/composer-home \
   -v /home/piston/.cache/ecommerce-composer:/tmp/composer-home \
   -v "$(pwd)":/app -w /app \
-  ecommerce-hexa-php-dev composer "$@"
+  lunar-starter composer "$@"

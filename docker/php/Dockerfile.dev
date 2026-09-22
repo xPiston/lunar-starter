@@ -1,6 +1,16 @@
-# DEV image only (local tooling: composer/artisan/npm via `docker run`).
-# Not meant for production - see the `Dockerfile` at the repo root for that.
-FROM php:8.4-cli-bookworm
+# Local development image used by the bin/ wrappers (bin/php, bin/composer,
+# bin/artisan), so the project can be built and run without installing PHP on
+# the host. Not the production image - that one is FrankenPHP, see
+# ../Dockerfile.
+#
+# Build it with:
+#   docker build -f docker/php/Dockerfile.dev -t lunar-starter .
+#
+# Extensions mirror what the app actually needs: pdo_pgsql/pgsql (Lunar has no
+# SQLite support), bcmath (money maths), gd + exif (product image
+# conversions), intl (number/date formatting), zip (composer), pcntl (queue
+# worker signals).
+FROM php:8.5-cli-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libicu-dev libpq-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev libexif-dev unzip git \
