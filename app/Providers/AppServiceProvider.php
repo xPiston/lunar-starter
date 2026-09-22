@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Filament\Resources\HeroSlideResource;
 use Filament\Panel;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -27,8 +28,16 @@ class AppServiceProvider extends ServiceProvider
         // ->panel() adds lunarphp/table-rate-shipping's admin screens
         // (shipping zones/methods/rates) to the same panel - it doesn't
         // replace Lunar's own plugins() call, Filament merges them.
+        //
+        // resources() appends to the panel's list rather than replacing it,
+        // and the closure runs after Lunar has built the panel - so this is
+        // how the application's own screens join the same admin. HeroSlide is
+        // not a Lunar model; nothing about it goes through Lunar.
         LunarPanel::forceTwoFactorAuth()
-            ->panel(fn (Panel $panel) => $panel->plugin(new ShippingPlugin))
+            ->panel(fn (Panel $panel) => $panel
+                ->plugin(new ShippingPlugin)
+                ->resources([HeroSlideResource::class])
+            )
             ->register();
     }
 

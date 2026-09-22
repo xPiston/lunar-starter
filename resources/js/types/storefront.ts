@@ -1,5 +1,6 @@
-// Exact mirror of the PHP `toArray()` methods in app/Domain/{Catalog,Cart}/*.php
-// and app/Domain/Shared/Money.php. If a use case changes its output shape,
+// Exact mirror of the PHP `toArray()` methods in
+// app/Domain/{Catalog,Cart,Content}/*.php and app/Domain/Shared/Money.php.
+// If a use case changes its output shape,
 // this is the only file that needs updating on the frontend.
 
 export interface Money {
@@ -40,6 +41,14 @@ export interface CollectionSummary {
     id: number;
     name: string;
     slug: string;
+}
+
+export interface HeroSlide {
+    id: number;
+    title: string;
+    subtitle: string | null;
+    image_url: string;
+    link_url: string | null;
 }
 
 export interface CartLine {
