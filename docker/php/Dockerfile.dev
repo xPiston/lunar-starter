@@ -1,6 +1,6 @@
 # DEV image only (local tooling: composer/artisan/npm via `docker run`).
 # Not meant for production - see the `Dockerfile` at the repo root for that.
-FROM php:8.4-cli-bookworm
+FROM php:8.5-cli-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libicu-dev libpq-dev libzip-dev libpng-dev libjpeg-dev libfreetype6-dev libexif-dev unzip git \
