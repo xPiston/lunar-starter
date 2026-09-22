@@ -32,15 +32,23 @@ services:
     ports:
       - '8080:80'
 
+  # The image's HEALTHCHECK probes FrankenPHP's metrics endpoint, which these
+  # two don't serve - they'd report unhealthy forever, and an orchestrator
+  # would restart them on a loop. Disabled rather than faked: a meaningful
+  # liveness probe for a queue worker is a different exercise.
   worker:
     <<: *app
     restart: unless-stopped
     command: php artisan queue:work --tries=3 --max-time=3600
+    healthcheck:
+      disable: true
 
   scheduler:
     <<: *app
     restart: unless-stopped
     command: php artisan schedule:work
+    healthcheck:
+      disable: true
 
   db:
     image: postgres:16-alpine

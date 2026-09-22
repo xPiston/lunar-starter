@@ -1,5 +1,7 @@
 .DS_Store
 .env
+.env.*
+!.env.example
 .env.backup
 .env.production
 .phpactor.json
@@ -19,6 +21,10 @@
 /storage/pail
 /storage/phpstan
 /vendor
+
+# Machine-specific staging overlay: it names the Docker network of whatever
+# tunnel/proxy stack is already running on that host.
+docker-compose.staging.yml
 auth.json
 Homestead.json
 Homestead.yaml
