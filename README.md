@@ -16,10 +16,7 @@ you can actually refactor.
 
 </div>
 
-<!--
-  📸 Drop a screenshot of the storefront here once you've styled it to taste:
-  ![Storefront](docs/screenshot.png)
--->
+<img src="docs/screenshots/storefront.png" alt="Storefront home page: search, category nav and a product grid" width="100%">
 
 ---
 
@@ -49,6 +46,13 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
 - ✅ 69 feature tests against a real PostgreSQL — no mocked database
+
+| | |
+| :--: | :--: |
+| <img src="docs/screenshots/product.png" alt="Product page with image gallery, size variants and a stock-aware quantity stepper"> | <img src="docs/screenshots/cart.png" alt="Cart with line items, an applied coupon and a live pricing breakdown"> |
+| **Product** — gallery, variants, live stock | **Cart** — coupons, tax, per-line quantities |
+| <img src="docs/screenshots/checkout.png" alt="Checkout showing the cart, address and payment steps"> | <img src="docs/screenshots/home-dark.png" alt="The same storefront home page in dark mode"> |
+| **Checkout** — address, shipping, Stripe | **Dark mode** — one toggle, everywhere |
 
 ## 🚀 Quick start
 

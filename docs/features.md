@@ -166,6 +166,10 @@ the missing storefront half: a coupon code field.
   coupon code isn't tied to anyone's personal data, so there's nothing to
   protect by hiding which case happened, and telling them apart is more
   useful to a real shopper.
+- `database/seeders/DiscountDefaultsSeeder.php` seeds one working coupon,
+  `WELCOME10` (10% off, no restrictions), so the discount box isn't a dead end
+  in a fresh install - without a single Discount row every code is rejected and
+  the feature looks broken rather than unused.
 - The cart page shows a plain code input, switching to "Code X applied
   [Remove]" once one's set — no discount breakdown by line, since Lunar
   already shows that in its own order/cart admin views.

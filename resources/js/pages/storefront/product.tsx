@@ -99,7 +99,10 @@ export default function ProductPage({ product, relatedProducts }: ProductPagePro
 
                     {product.description && (
                         <div
-                            className="text-muted-foreground mt-4 text-sm leading-relaxed"
+                            // Descriptions are admin-authored HTML, so the list styles Tailwind's
+                            // preflight resets have to be put back here - otherwise every <ul>
+                            // renders as unmarked lines.
+                            className="text-muted-foreground mt-4 space-y-3 text-sm leading-relaxed [&_li]:mt-1 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5"
                             dangerouslySetInnerHTML={{ __html: product.description }}
                         />
                     )}
