@@ -44,16 +44,19 @@ export default function StorefrontLayout({ children }: StorefrontLayoutProps) {
     return (
         <div className="bg-background text-foreground flex min-h-svh flex-col">
             <header>
-                <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
-                    <Link href={route('home')} className="flex shrink-0 items-center gap-2 font-semibold">
+                {/* Wraps below `sm`: logo and icons share the first row, search takes
+                    a full-width one of its own. Squeezing all three onto one line at
+                    phone width left the search field about 80px wide. */}
+                <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-6 py-4">
+                    <Link href={route('home')} className="mr-auto flex shrink-0 items-center gap-2 font-semibold">
                         <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-full">
                             <AppLogoIcon className="size-5 fill-current" />
                         </span>
                         <span>Shop</span>
                     </Link>
 
-                    <form onSubmit={submitSearch} className="flex-1">
-                        <div className="border-input bg-secondary/40 focus-within:ring-ring/50 flex h-10 max-w-md items-center gap-2 rounded-full border px-4 focus-within:ring-2">
+                    <form onSubmit={submitSearch} className="order-last w-full sm:order-none sm:w-auto sm:flex-1">
+                        <div className="border-input bg-secondary/40 focus-within:ring-ring/50 flex h-10 items-center gap-2 rounded-full border px-4 focus-within:ring-2 sm:max-w-md">
                             <Search className="text-muted-foreground size-4 shrink-0" />
                             <input
                                 type="search"

@@ -54,6 +54,13 @@ Swap the engine later, or don't. Either way the decision stays yours.
 | <img src="docs/screenshots/checkout.png" alt="Checkout showing the cart, address and payment steps"> | <img src="docs/screenshots/home-dark.png" alt="The same storefront home page in dark mode"> |
 | **Checkout** — address, shipping, Stripe | **Dark mode** — one toggle, everywhere |
 
+Every page is built mobile-first — the grid reflows, the nav collapses into a
+drawer, and the cart summary stacks under the items:
+
+| | | |
+| :--: | :--: | :--: |
+| <img src="docs/screenshots/m-home.png" alt="Home page at phone width with a two-column product grid"> | <img src="docs/screenshots/m-nav.png" alt="Navigation drawer open over the home page on a phone"> | <img src="docs/screenshots/m-cart.png" alt="Cart at phone width with the pricing summary stacked below the items"> |
+
 ## 🚀 Quick start
 
 No PHP or Node on your machine? The `bin/` wrappers run everything in Docker.
