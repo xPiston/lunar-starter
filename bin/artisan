@@ -2,4 +2,4 @@
 exec docker run --rm --network host \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)":/app -w /app \
-  ecommerce-hexa-php-dev php artisan "$@"
+  lunar-starter php artisan "$@"

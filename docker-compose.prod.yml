@@ -13,7 +13,7 @@
 
 x-app: &app
   build: .
-  image: ecommerce-hexa-template
+  image: lunar-starter-prod
   env_file:
     - .env.prod
   environment:
