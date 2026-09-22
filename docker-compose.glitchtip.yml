@@ -1,0 +1,55 @@
+# Optional local error-tracking backend for development - NOT part of the
+# app's own stack (docker-compose.yml / docker-compose.prod.yml). Spin this
+# up to get a real DSN and see errors reported by this template land
+# somewhere real, instead of just trusting the Sentry SDK config blindly.
+#
+# Usage:
+#   docker compose -f docker-compose.glitchtip.yml up -d
+#   # wait ~30s for migrations, then open http://localhost:8010, create an
+#   # account (the first user becomes an admin) and an organization/project
+#   # to get a DSN - paste it into SENTRY_LARAVEL_DSN in .env.
+#
+# In real production, self-host GlitchTip on its own infrastructure (see
+# https://glitchtip.com/documentation/install) rather than reusing this file
+# — it's sized for local development only.
+
+services:
+  glitchtip-db:
+    # 16, not GlitchTip's documented 18: matches the Postgres version used
+    # elsewhere in this template, and avoids Postgres 18's new image layout
+    # (data now lives directly under /var/lib/postgresql, versioned by
+    # pg_ctlcluster - the old /var/lib/postgresql/data mount point from
+    # GlitchTip's own sample compose file crash-loops on 18).
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: 'trust'
+    volumes:
+      - glitchtip-db-data:/var/lib/postgresql/data
+
+  glitchtip-redis:
+    image: valkey/valkey:9-alpine
+    restart: unless-stopped
+
+  glitchtip:
+    image: glitchtip/glitchtip:6
+    restart: unless-stopped
+    ports:
+      - '8010:8000'
+    depends_on:
+      - glitchtip-db
+      - glitchtip-redis
+    environment:
+      DATABASE_URL: postgres://postgres@glitchtip-db:5432/postgres
+      VALKEY_URL: redis://glitchtip-redis:6379
+      SECRET_KEY: local-dev-only-not-a-real-secret
+      EMAIL_URL: consolemail://
+      GLITCHTIP_DOMAIN: http://localhost:8010
+      DEFAULT_FROM_EMAIL: dev@localhost
+      SERVER_ROLE: all_in_one
+    volumes:
+      - glitchtip-uploads:/code/uploads
+
+volumes:
+  glitchtip-db-data:
+  glitchtip-uploads:

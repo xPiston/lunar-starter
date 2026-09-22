@@ -1,0 +1,16 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    paths:
+        - app
+
+    # The domain (app/Domain, app/Application) is pure PHP with no Eloquent:
+    # nothing stops it from aiming for max level; it's app/Infrastructure/Lunar
+    # (Eloquent magic on Lunar's models) that pulls the overall level down.
+    # Raising this level over time is a good health indicator for the
+    # template.
+    level: 5
+
+    tmpDir: storage/phpstan

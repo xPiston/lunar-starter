@@ -1,0 +1,67 @@
+name: linter
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install PHP Dependencies
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      # --test (Pint) / --check (Prettier) / no --fix (ESLint): these three
+      # commands fail on any violation WITHOUT modifying the files - unlike
+      # their local equivalents (composer lint / npm run format / npm run
+      # lint), which auto-fix for day-to-day dev work.
+      - name: Pint (PHP code style)
+        run: vendor/bin/pint --test
+
+      - name: PHPStan (PHP static analysis)
+        run: vendor/bin/phpstan analyse --memory-limit=1G
+
+      - name: Prettier (frontend formatting)
+        run: npm run format:check
+
+      - name: ESLint (frontend lint)
+        run: npm run lint:check
+
+      - name: TypeScript (frontend types)
+        run: npm run typecheck
+
+      # Known vulnerability advisories in installed dependencies. composer
+      # audit has no severity filter (any known advisory fails); npm audit is
+      # capped at high/critical since moderate/low transitive dev-tooling
+      # findings are common noise that isn't worth blocking merges over.
+      - name: Composer audit (PHP dependencies)
+        run: composer audit
+
+      - name: npm audit (frontend dependencies)
+        run: npm audit --audit-level=high

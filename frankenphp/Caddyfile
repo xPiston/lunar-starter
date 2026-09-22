@@ -1,0 +1,19 @@
+{
+	frankenphp
+}
+
+# SERVER_NAME can be a real domain name (Caddy then automatically obtains
+# an HTTPS certificate via Let's Encrypt) or just a port (":80") if the
+# container is already behind another reverse proxy/load balancer that
+# terminates TLS (the most common case on most PaaS) - see the README for
+# both scenarios.
+{$SERVER_NAME::80} {
+	root * public/
+	encode zstd gzip
+
+	php_server {
+		try_files {path} index.php
+	}
+
+	log
+}
