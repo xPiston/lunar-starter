@@ -51,6 +51,22 @@ export interface HeroSlide {
     link_url: string | null;
 }
 
+export interface ContentPageSummary {
+    id: number;
+    type: 'page' | 'post';
+    title: string;
+    slug: string;
+    excerpt: string | null;
+    image_url: string | null;
+    // ISO 8601, formatted for display on the frontend.
+    published_at: string | null;
+}
+
+export interface ContentPage extends ContentPageSummary {
+    // Admin-authored HTML, rendered as markup like a product description.
+    body: string;
+}
+
 export interface CartLine {
     id: number;
     product_variant_id: number;

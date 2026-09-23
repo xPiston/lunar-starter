@@ -29,8 +29,11 @@ export interface SharedData {
     // Total quantity in the current cart, for the storefront header badge.
     cartItemCount: number;
     // Navbar collection links - only shared on storefront routes, by
-    // App\Http\Middleware\ShareStorefrontNavigation.
+    // App\Http\Middleware\HandleInertiaRequests.
     navCollections?: CollectionSummary[];
+    // Editorial content links, shared the same way: custom pages for the
+    // footer, and whether any article exists to justify a News tab.
+    navContent?: { pages: { title: string; slug: string }[]; has_news: boolean };
     [key: string]: unknown;
 }
 

@@ -8,7 +8,9 @@ use App\Domain\Account\Port\OrderHistory;
 use App\Domain\Cart\Port\CartGateway;
 use App\Domain\Catalog\Port\ProductCatalog;
 use App\Domain\Checkout\Port\CheckoutGateway;
+use App\Domain\Content\Port\ContentPages;
 use App\Domain\Content\Port\HeroSlides;
+use App\Infrastructure\Eloquent\Content\EloquentContentPages;
 use App\Infrastructure\Eloquent\Content\EloquentHeroSlides;
 use App\Infrastructure\Lunar\Account\LunarOrderHistory;
 use App\Infrastructure\Lunar\Cart\LunarCartGateway;
@@ -35,8 +37,9 @@ final class DomainServiceProvider extends ServiceProvider
         $this->app->bind(CheckoutGateway::class, LunarCheckoutGateway::class);
         $this->app->bind(OrderHistory::class, LunarOrderHistory::class);
 
-        // Not every port is Lunar's: the homepage slider is the application's
-        // own content, stored in its own table.
+        // Not every port is Lunar's: the slider and the editorial pages are
+        // the application's own content, stored in its own tables.
         $this->app->bind(HeroSlides::class, EloquentHeroSlides::class);
+        $this->app->bind(ContentPages::class, EloquentContentPages::class);
     }
 }

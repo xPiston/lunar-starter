@@ -32,7 +32,7 @@ interface StorefrontLayoutProps {
  */
 export default function StorefrontLayout({ children }: StorefrontLayoutProps) {
     const { props, url } = usePage<SharedData>();
-    const { auth, cartItemCount } = props;
+    const { auth, cartItemCount, navContent } = props;
     const currentQuery = new URLSearchParams(url.split('?')[1] ?? '').get('q') ?? '';
     const [searchTerm, setSearchTerm] = useState(currentQuery);
 
@@ -150,11 +150,29 @@ export default function StorefrontLayout({ children }: StorefrontLayoutProps) {
                                     Home
                                 </Link>
                             </li>
+                            {navContent?.has_news && (
+                                <li>
+                                    <Link href={route('news.index')} className="hover:text-foreground">
+                                        News
+                                    </Link>
+                                </li>
+                            )}
                             <li>
                                 <Link href={route('orders.lookup')} className="hover:text-foreground">
                                     Track an order
                                 </Link>
                             </li>
+                            {/* Custom pages land here rather than in the navbar:
+                                "About us" or "Shipping & returns" belong at the
+                                bottom, and an unbounded number of them would
+                                overflow the nav. */}
+                            {(navContent?.pages ?? []).map((page) => (
+                                <li key={page.slug}>
+                                    <Link href={route('pages.show', page.slug)} className="hover:text-foreground">
+                                        {page.title}
+                                    </Link>
+                                </li>
+                            ))}
                         </ul>
                     </div>
 

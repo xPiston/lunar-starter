@@ -6,8 +6,10 @@ use App\Http\Controllers\Storefront\AccountController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\CollectionController;
+use App\Http\Controllers\Storefront\ContentPageController;
 use App\Http\Controllers\Storefront\GuestOrderLookupController;
 use App\Http\Controllers\Storefront\HomeController;
+use App\Http\Controllers\Storefront\NewsController;
 use App\Http\Controllers\Storefront\ProductController;
 use App\Http\Controllers\Storefront\SearchController;
 use App\Http\Controllers\Storefront\SitemapController;
@@ -18,6 +20,14 @@ Route::get('/', HomeController::class)->name('home');
 Route::get('/collections/{slug}', CollectionController::class)->name('collections.show');
 Route::get('/products/{slug}', ProductController::class)->name('products.show');
 Route::get('/search', SearchController::class)->name('search');
+
+// Editorial content, authored in the back office. Two shapes of the same
+// thing: /news is the dated, listed one, /pages/{slug} the standalone one.
+// Both are prefixed rather than served from the root, so a page someone
+// names "cart" or "search" can never shadow a real storefront route.
+Route::get('/news', [NewsController::class, 'index'])->name('news.index');
+Route::get('/news/{slug}', [NewsController::class, 'show'])->name('news.show');
+Route::get('/pages/{slug}', ContentPageController::class)->name('pages.show');
 
 // Generated, not static files in public/: the sitemap follows the catalogue,
 // and robots.txt needs the sitemap's absolute URL, which depends on APP_URL.

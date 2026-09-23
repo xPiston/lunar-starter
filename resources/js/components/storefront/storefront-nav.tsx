@@ -13,12 +13,15 @@ interface NavLink {
 
 /**
  * Collection links come from `navCollections`, shared by
- * App\Http\Middleware\ShareStorefrontNavigation on storefront routes only -
- * hence the fallback: any page rendered outside that group simply gets no
- * collection links instead of crashing.
+ * App\Http\Middleware\HandleInertiaRequests on storefront routes only - hence
+ * the fallbacks: any page rendered outside that group simply gets no links
+ * instead of crashing.
+ *
+ * News only appears once an article has been published: a shop that doesn't
+ * write any shouldn't carry a permanently empty tab.
  */
 function useNavLinks(): NavLink[] {
-    const { navCollections } = usePage<SharedData>().props;
+    const { navCollections, navContent } = usePage<SharedData>().props;
     const collections = (navCollections ?? []) as CollectionSummary[];
 
     return [
@@ -27,6 +30,7 @@ function useNavLinks(): NavLink[] {
             label: collection.name,
             href: route('collections.show', collection.slug),
         })),
+        ...(navContent?.has_news ? [{ label: 'News', href: route('news.index') }] : []),
         { label: 'Track an order', href: route('orders.lookup') },
     ];
 }

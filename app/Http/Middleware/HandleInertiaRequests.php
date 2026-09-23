@@ -4,7 +4,10 @@ namespace App\Http\Middleware;
 
 use App\Application\Cart\CountCartItems;
 use App\Application\Catalog\ListCollections;
+use App\Application\Content\ListPublishedContent;
 use App\Domain\Catalog\CollectionSummary;
+use App\Domain\Content\ContentPageSummary;
+use App\Domain\Content\ContentType;
 use App\Http\Seo\PageMeta;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -57,6 +60,7 @@ class HandleInertiaRequests extends Middleware
             // App\Domain\Cart\Port\CartGateway::currentItemCount().
             'cartItemCount' => app(CountCartItems::class)->handle(),
             'navCollections' => fn (): array => $this->navCollections($request),
+            'navContent' => fn (): array => $this->navContent($request),
             // Overridden per page by controllers that know better; shared
             // so no response ever ships without a title and description.
             // Rendered server-side by app.blade.php - see PageMeta.
@@ -94,5 +98,44 @@ class HandleInertiaRequests extends Middleware
             static fn (CollectionSummary $collection): array => $collection->toArray(),
             app(ListCollections::class)->handle(),
         );
+    }
+
+    /**
+     * Links to the editorial content: custom pages for the footer, and
+     * whether there is any article at all - the navbar only offers "News"
+     * once something has been published under it.
+     *
+     * One query for both, and only the three fields a link needs: the
+     * excerpts and images the summaries also carry would be dead weight in
+     * every single response. Same storefront gating as navCollections above.
+     *
+     * @return array{pages: array<int, array{title: string, slug: string}>, has_news: bool}
+     */
+    private function navContent(Request $request): array
+    {
+        $middleware = $request->route()?->gatherMiddleware() ?? [];
+
+        if (! in_array(MarkStorefrontRequest::class, $middleware, true)) {
+            return ['pages' => [], 'has_news' => false];
+        }
+
+        $content = app(ListPublishedContent::class)->handle();
+
+        return [
+            'pages' => array_values(array_map(
+                static fn (ContentPageSummary $page): array => [
+                    'title' => $page->title,
+                    'slug' => $page->slug,
+                ],
+                array_filter(
+                    $content,
+                    static fn (ContentPageSummary $entry): bool => $entry->type === ContentType::Page,
+                ),
+            )),
+            'has_news' => array_any(
+                $content,
+                static fn (ContentPageSummary $entry): bool => $entry->type === ContentType::Post,
+            ),
+        ];
     }
 }

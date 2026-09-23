@@ -6,7 +6,10 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Application\Catalog\ListCollections;
 use App\Application\Catalog\ListPublishedProductSlugs;
+use App\Application\Content\ListPublishedContent;
 use App\Domain\Catalog\CollectionSummary;
+use App\Domain\Content\ContentPageSummary;
+use App\Domain\Content\ContentType;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Response;
 
@@ -25,8 +28,11 @@ use Illuminate\Http\Response;
  */
 final class SitemapController extends Controller
 {
-    public function sitemap(ListPublishedProductSlugs $listSlugs, ListCollections $listCollections): Response
-    {
+    public function sitemap(
+        ListPublishedProductSlugs $listSlugs,
+        ListCollections $listCollections,
+        ListPublishedContent $listContent,
+    ): Response {
         $urls = [route('home'), route('legal.terms'), route('legal.privacy'), route('orders.lookup')];
 
         foreach ($listCollections->handle() as $collection) {
@@ -36,6 +42,21 @@ final class SitemapController extends Controller
 
         foreach ($listSlugs->handle() as $slug) {
             $urls[] = route('products.show', $slug);
+        }
+
+        // Drafts and scheduled content never appear here: the port only ever
+        // returns what is live. The news index is listed only once there is
+        // something on it.
+        $content = $listContent->handle();
+
+        foreach ($content as $entry) {
+            $urls[] = $entry->type === ContentType::Post
+                ? route('news.show', $entry->slug)
+                : route('pages.show', $entry->slug);
+        }
+
+        if (array_any($content, static fn (ContentPageSummary $entry): bool => $entry->type === ContentType::Post)) {
+            $urls[] = route('news.index');
         }
 
         $body = implode("\n", array_map(
