@@ -1,6 +1,6 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, type ResolvedComponent } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
@@ -14,7 +14,14 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
-    resolve: (name) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
+    // Inertia 3 narrowed what a resolver may return: a component, or a promise
+    // of one - no longer a promise of the whole module. Hence the typed glob
+    // and the unwrapping of `default` that version 2 did for us.
+    resolve: (name) =>
+        resolvePageComponent<{ default: ResolvedComponent }>(
+            `./pages/${name}.tsx`,
+            import.meta.glob<{ default: ResolvedComponent }>('./pages/**/*.tsx'),
+        ).then((page) => page.default),
     setup({ el, App, props }) {
         const root = createRoot(el);
 

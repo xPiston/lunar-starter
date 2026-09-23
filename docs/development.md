@@ -213,6 +213,26 @@ here is worth looking at directly.
 (composer, npm, both Dockerfiles, GitHub Actions) so advisories get caught
 before `npm audit`/`composer audit` even has to.
 
+Its updates are **grouped**, because several of these packages cannot be
+bumped on their own: `laravel-vite-plugin` and `@vitejs/plugin-react` both
+require a matching Vite major, Inertia's PHP and JS halves have to move
+together, and PHPUnit drags its own components along. Two majors are also
+deliberately held back, each with the reason in the file: ESLint 10, which
+`eslint-plugin-react` still doesn't accept, and Node, whose odd-numbered
+releases are never LTS.
+
+After pulling a dependency upgrade, run:
+
+```sh
+./bin/artisan view:clear
+```
+
+Blade compiles `@inertia` into the cached view, and Inertia 3 changed what
+that directive emits. Without clearing, the app boots against the old markup
+and renders **a blank page with no server-side error** — the failure looks
+like a broken build rather than a stale cache. Production is safe as long as
+the deploy runs `view:cache` after installing.
+
 ### Rate limiting
 
 Anonymous browsing (catalog, product pages, viewing the cart/checkout) isn't

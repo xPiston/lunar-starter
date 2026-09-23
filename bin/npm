@@ -4,4 +4,4 @@ exec docker run --rm --network host \
   -e HOME=/tmp/npm-home \
   -v /home/piston/.cache/ecommerce-npm:/tmp/npm-home \
   -v "$(pwd)":/app -w /app \
-  node:22-bookworm-slim npm "$@"
+  node:24-bookworm-slim npm "$@"

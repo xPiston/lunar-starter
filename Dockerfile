@@ -8,7 +8,7 @@
 # a real concern later.
 
 # ---- Frontend (Vite/React) ------------------------------------------------
-FROM node:22-bookworm-slim AS frontend_builder
+FROM node:24-bookworm-slim AS frontend_builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
