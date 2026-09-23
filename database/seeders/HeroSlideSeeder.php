@@ -5,20 +5,18 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\HeroSlide;
+use Database\Seeders\Concerns\GeneratesPlaceholderImages;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Three slides for the homepage slider, with generated placeholder banners.
- *
- * Deliberately generated rather than downloaded: a hero banner is the one
- * image a shop always replaces with its own artwork, and a stock photo here
- * would only invite someone to ship it. These are obviously placeholders,
- * they need no network, and they're re-made from scratch on every run so the
- * seeder stays idempotent.
+ * Three slides for the homepage slider, with generated placeholder banners -
+ * see the trait for why they are generated rather than downloaded.
  */
 final class HeroSlideSeeder extends Seeder
 {
+    use GeneratesPlaceholderImages;
+
     private const DIRECTORY = 'hero-slides';
 
     /**
@@ -53,53 +51,14 @@ final class HeroSlideSeeder extends Seeder
             HeroSlide::create([
                 'title' => $slide['title'],
                 'subtitle' => $slide['subtitle'],
-                'image_path' => $this->generateBanner($slide['title'], $slide['colours']),
+                'image_path' => $this->placeholderImage(
+                    label: $slide['title'],
+                    directory: self::DIRECTORY,
+                    colours: $slide['colours'],
+                ),
                 'is_visible' => true,
                 'sort_order' => $position,
             ]);
         }
-    }
-
-    /**
-     * @param  array{int[], int[]}  $colours
-     */
-    private function generateBanner(string $title, array $colours): string
-    {
-        $width = 1600;
-        $height = 640;
-
-        $image = imagecreatetruecolor($width, $height);
-
-        // A vertical gradient between the two tones, drawn a row at a time.
-        // Cheap, and it stops the banners looking like error pages.
-        [[$r1, $g1, $b1], [$r2, $g2, $b2]] = $colours;
-
-        for ($y = 0; $y < $height; $y++) {
-            $ratio = $y / $height;
-            $colour = imagecolorallocate(
-                $image,
-                (int) ($r1 + ($r2 - $r1) * $ratio),
-                (int) ($g1 + ($g2 - $g1) * $ratio),
-                (int) ($b1 + ($b2 - $b1) * $ratio),
-            );
-            imagefilledrectangle($image, 0, $y, $width, $y, $colour);
-        }
-
-        // Says what it is, in the image itself: nobody ships a banner reading
-        // "placeholder" by accident.
-        $white = imagecolorallocate($image, 255, 255, 255);
-        imagestring($image, 5, 60, (int) ($height / 2) - 20, $title, $white);
-        imagestring($image, 3, 60, (int) ($height / 2) + 6, 'Placeholder - replace in the admin', $white);
-
-        $path = self::DIRECTORY.'/'.str($title)->slug().'.png';
-
-        ob_start();
-        imagepng($image);
-        $contents = (string) ob_get_clean();
-        imagedestroy($image);
-
-        Storage::disk('public')->put($path, $contents);
-
-        return $path;
     }
 }
