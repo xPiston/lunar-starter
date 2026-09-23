@@ -174,6 +174,41 @@ the missing storefront half: a coupon code field.
   [Remove]" once one's set — no discount breakdown by line, since Lunar
   already shows that in its own order/cart admin views.
 
+### Abandoned cart reminders
+
+One email to whoever left items behind, with a link that puts the cart back in
+their browser. `carts:send-abandoned-reminders` is scheduled hourly in
+`routes/console.php`, so **nothing is sent unless the scheduler is running** —
+in this template's production topology that's the dedicated `scheduler`
+service (see [deployment](deployment.md)).
+
+- "Abandoned" means idle on both sides: the cart row *and* every one of its
+  lines. Lunar's cart lines don't touch their cart's `updated_at`, so a check
+  on the cart alone would treat a cart someone is actively filling as
+  untouched since the moment it was created, and email them mid-session.
+- The rules live behind the `CartReminders` port, not at the call site:
+  completed, emptied, merged, unreachable, already-reminded and unsubscribed
+  carts never come out of `listDue()`, so no caller can forget one of them.
+  `tests/Feature/Storefront/AbandonedCartReminderTest.php` is mostly about
+  that restraint.
+- A cart is marked as reminded **before** the mail is queued. If the mail
+  driver throws, the reminder is lost rather than repeated: a shop that emails
+  someone twice about the same cart looks broken in a way the customer can see.
+- Reachability comes from the account's address first, then the address typed
+  into checkout. A guest who never reached checkout left no address anywhere
+  and is simply never contacted.
+- Both links in the email are **signed, expiring URLs** (`signed` middleware).
+  Without a signature, editing the id in one link would restore any cart in
+  the shop. A cart attached to an account is only handed over to that account
+  signed in — a forwarded email otherwise gives away the address on it; the
+  visitor is sent to log in and lands back on the link afterwards.
+- Every email carries a one-click unsubscribe, recorded per address. A
+  reminder is marketing, not a receipt, and shipping one without an opt-out
+  puts the shop's owner on the wrong side of GDPR/CAN-SPAM.
+- `ABANDONED_CART_REMINDERS_ENABLED=false` switches the whole thing off; the
+  delay, the maximum cart age, the link lifetime and the batch size are in
+  `config/abandoned_carts.php`.
+
 ## SEO
 
 Metadata is rendered by `resources/views/app.blade.php`, from a `meta` prop
@@ -213,9 +248,12 @@ Set `APP_NAME`, `SEO_DESCRIPTION` and `SEO_IMAGE` (an absolute URL to a
   accounts and order history](#customer-accounts-and-order-history).
 - Refunds and other post-order actions: already covered by Lunar's Filament
   panel, not reimplemented on the storefront side.
-- No shipping/delivery-status emails beyond the order confirmation — no
-  "your order has shipped" notification, since nothing in this template
-  tracks fulfillment status yet.
+- No shipping/delivery-status emails — the order confirmation and the
+  abandoned cart reminder are the only two the template sends. "Your order
+  has shipped" would need fulfillment status, which nothing here tracks yet.
+- One reminder per abandoned cart, not a sequence. A second and third email
+  on a delay is the usual next step, and the schedule + `cart_reminders`
+  table are where it would go.
 - `/terms` and `/privacy` are structural placeholders, not final legal text —
   see [Legal pages](development.md#legal-pages).
 - A few auth pages from the starter kit (`login.tsx`, `register.tsx`,

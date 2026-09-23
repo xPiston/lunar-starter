@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Storefront\AccountController;
 use App\Http\Controllers\Storefront\CartController;
+use App\Http\Controllers\Storefront\CartRecoveryController;
 use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\CollectionController;
 use App\Http\Controllers\Storefront\ContentPageController;
@@ -35,6 +36,26 @@ Route::get('/sitemap.xml', [SitemapController::class, 'sitemap'])->name('sitemap
 Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
 Route::get('/cart', [CartController::class, 'show'])->name('cart.show');
+
+// The two links an abandoned cart reminder carries. `signed` is what makes
+// them safe to put in an email: the cart id and the email address are in the
+// URL, so without a signature anyone could restore a stranger's cart by
+// counting ids, or unsubscribe an address they don't own. Laravel answers 403
+// on a tampered or expired signature.
+Route::middleware('signed')->group(function (): void {
+    // `{cartId}`, not `{cart}`: Lunar's ModelManifest registers a
+    // `Route::model()` binding for every one of its models under the
+    // camelCased class name, so a parameter called `cart` is resolved to a
+    // `Lunar\Models\Cart` before the controller sees it. That would put Lunar
+    // in a controller's signature, and it happens in the `web` group - before
+    // `signed` runs - so probing ids would answer 404 or 403 depending on
+    // whether the cart exists, which is an oracle this route shouldn't offer.
+    Route::get('/cart/recover/{cartId}', [CartRecoveryController::class, 'recover'])
+        ->whereNumber('cartId')
+        ->name('cart.recover');
+    Route::get('/cart/reminders/unsubscribe', [CartRecoveryController::class, 'unsubscribe'])
+        ->name('cart.reminders.unsubscribe');
+});
 Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
 Route::get('/checkout/confirmation', [CheckoutController::class, 'confirmation'])->name('checkout.confirmation');
 

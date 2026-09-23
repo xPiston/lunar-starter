@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { PackageSearch, Search, ShoppingCart } from 'lucide-react';
+import { CheckCircle2, PackageSearch, Search, ShoppingCart } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 
 interface StorefrontLayoutProps {
@@ -32,7 +32,10 @@ interface StorefrontLayoutProps {
  */
 export default function StorefrontLayout({ children }: StorefrontLayoutProps) {
     const { props, url } = usePage<SharedData>();
-    const { auth, cartItemCount, navContent } = props;
+    const { auth, cartItemCount, navContent, flash } = props;
+    // Either key, one banner: the distinction between "it worked" and "here's
+    // what happened" matters to the controller, not to the reader.
+    const flashMessage = flash?.success ?? flash?.status;
     const currentQuery = new URLSearchParams(url.split('?')[1] ?? '').get('q') ?? '';
     const [searchTerm, setSearchTerm] = useState(currentQuery);
 
@@ -128,7 +131,15 @@ export default function StorefrontLayout({ children }: StorefrontLayoutProps) {
                 <StorefrontNav />
             </header>
 
-            <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
+            <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+                {flashMessage && (
+                    <div role="status" className="border-border bg-secondary/40 mb-6 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm">
+                        <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+                        <span>{flashMessage}</span>
+                    </div>
+                )}
+                {children}
+            </main>
 
             <footer className="border-border/60 border-t">
                 <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 sm:grid-cols-3">

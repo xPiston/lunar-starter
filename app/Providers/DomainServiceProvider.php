@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Domain\Account\Port\OrderHistory;
 use App\Domain\Cart\Port\CartGateway;
+use App\Domain\Cart\Port\CartReminders;
 use App\Domain\Catalog\Port\ProductCatalog;
 use App\Domain\Checkout\Port\CheckoutGateway;
 use App\Domain\Content\Port\ContentPages;
@@ -14,6 +15,7 @@ use App\Infrastructure\Eloquent\Content\EloquentContentPages;
 use App\Infrastructure\Eloquent\Content\EloquentHeroSlides;
 use App\Infrastructure\Lunar\Account\LunarOrderHistory;
 use App\Infrastructure\Lunar\Cart\LunarCartGateway;
+use App\Infrastructure\Lunar\Cart\LunarCartReminders;
 use App\Infrastructure\Lunar\Catalog\LunarProductCatalog;
 use App\Infrastructure\Lunar\Checkout\LunarCheckoutGateway;
 use Illuminate\Support\ServiceProvider;
@@ -34,6 +36,7 @@ final class DomainServiceProvider extends ServiceProvider
     {
         $this->app->bind(ProductCatalog::class, LunarProductCatalog::class);
         $this->app->bind(CartGateway::class, LunarCartGateway::class);
+        $this->app->bind(CartReminders::class, LunarCartReminders::class);
         $this->app->bind(CheckoutGateway::class, LunarCheckoutGateway::class);
         $this->app->bind(OrderHistory::class, LunarOrderHistory::class);
 

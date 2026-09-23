@@ -6,6 +6,7 @@ namespace App\Domain\Cart\Port;
 
 use App\Domain\Cart\Cart;
 use App\Domain\Cart\CartLineException;
+use App\Domain\Cart\CartRecovery;
 use App\Domain\Cart\InvalidCouponException;
 
 /**
@@ -30,6 +31,17 @@ interface CartGateway
      * visitor who never added anything costs zero queries here.
      */
     public function currentItemCount(): int;
+
+    /**
+     * Puts a previously abandoned cart back in this browser's session, so the
+     * visitor carries on where they left off.
+     *
+     * Takes the current user's id rather than reading it itself: the domain
+     * decides whether an account's cart may be handed over (it may not,
+     * unless that account is signed in), but has no business knowing how
+     * authentication works.
+     */
+    public function restore(int $cartId, ?int $currentUserId): CartRecovery;
 
     /**
      * @throws CartLineException Not enough stock, quantity

@@ -28,6 +28,8 @@ export interface SharedData {
     auth: Auth;
     // Total quantity in the current cart, for the storefront header badge.
     cartItemCount: number;
+    // One-off messages from the redirect that led here.
+    flash?: { success: string | null; status: string | null };
     // Navbar collection links - only shared on storefront routes, by
     // App\Http\Middleware\HandleInertiaRequests.
     navCollections?: CollectionSummary[];

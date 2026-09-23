@@ -59,6 +59,13 @@ class HandleInertiaRequests extends Middleware
             // query at all for a visitor who hasn't started one - see
             // App\Domain\Cart\Port\CartGateway::currentItemCount().
             'cartItemCount' => app(CountCartItems::class)->handle(),
+            // One-off messages set by a redirect ("your cart is back", "added
+            // to cart"). Shared rather than passed page by page because the
+            // page that shows them is never the one that set them.
+            'flash' => fn (): array => [
+                'success' => $request->session()->get('success'),
+                'status' => $request->session()->get('status'),
+            ],
             'navCollections' => fn (): array => $this->navCollections($request),
             'navContent' => fn (): array => $this->navContent($request),
             // Overridden per page by controllers that know better; shared

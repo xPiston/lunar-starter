@@ -6,12 +6,14 @@ namespace App\Infrastructure\Lunar\Cart;
 
 use App\Domain\Cart\Cart;
 use App\Domain\Cart\CartLineException;
+use App\Domain\Cart\CartRecovery;
 use App\Domain\Cart\InvalidCouponException;
 use App\Domain\Cart\Port\CartGateway;
 use Illuminate\Support\Facades\Session;
 use Lunar\Exceptions\Carts\CartException;
 use Lunar\Facades\CartSession;
 use Lunar\Facades\Discounts;
+use Lunar\Models\Cart as LunarCart;
 use Lunar\Models\CartLine;
 use Lunar\Models\ProductVariant;
 
@@ -53,6 +55,37 @@ final class LunarCartGateway implements CartGateway
         }
 
         return (int) CartLine::query()->where('cart_id', $cartId)->sum('quantity');
+    }
+
+    /**
+     * `CartSession::use()` both puts the cart in the session and makes it the
+     * one every later call in this request sees, which is what makes the
+     * redirect to /cart show the restored contents rather than a new empty
+     * cart.
+     *
+     * An emptied cart counts as unavailable: the link would "work" and land
+     * the visitor on an empty page, which reads as a broken link.
+     */
+    public function restore(int $cartId, ?int $currentUserId): CartRecovery
+    {
+        $cart = LunarCart::query()
+            ->whereNull('completed_at')
+            ->whereNull('order_id')
+            ->whereNull('merged_id')
+            ->withCount('lines')
+            ->find($cartId);
+
+        if ($cart === null || $cart->lines_count === 0) {
+            return CartRecovery::Unavailable;
+        }
+
+        if ($cart->user_id !== null && $cart->user_id !== $currentUserId) {
+            return CartRecovery::RequiresLogin;
+        }
+
+        CartSession::use($cart);
+
+        return CartRecovery::Restored;
     }
 
     public function addLine(int $productVariantId, int $quantity): Cart

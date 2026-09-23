@@ -64,6 +64,11 @@ everything by hand at `/lunar/shipping-zones` and `/lunar/tax-rates`.
 managed Postgres in real production). It's the same Docker image for all
 three — only the command changes.
 
+Both background services earn their keep: the worker sends every queued mail
+and builds product image conversions, and the scheduler is what runs
+`carts:send-abandoned-reminders` hourly. Drop either one and the storefront
+still works, silently, without ever emailing anyone.
+
 ### SERVER_NAME (domain vs. behind a reverse proxy)
 
 `frankenphp/Caddyfile` reads `SERVER_NAME`: a real domain name
