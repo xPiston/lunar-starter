@@ -11,7 +11,7 @@ you can actually refactor.
 [![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Lunar](https://img.shields.io/badge/Lunar-1.5-1F2937)](https://lunarphp.io)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![Tests](https://img.shields.io/badge/tests-69%20passing-22C55E)](docs/development.md#tests)
+[![Tests](https://img.shields.io/badge/tests-116%20passing-22C55E)](docs/development.md#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 </div>
@@ -37,6 +37,10 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 📦 Customer accounts with order history — plus guest order lookup by
   reference + email
 - ✉️ Order confirmation emails, legal page scaffolding
+- 🎠 Homepage slider, custom pages and a news section — all editable in the
+  admin, nothing hardcoded
+- 🔁 Abandoned cart reminders with a signed recovery link and one-click
+  unsubscribe
 - 🎨 shadcn/ui interface with a light/dark toggle
 
 **Behind the scenes**
@@ -45,7 +49,7 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🚦 Rate limiting on every state-changing route
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
-- ✅ 69 feature tests against a real PostgreSQL — no mocked database
+- ✅ 116 feature tests against a real PostgreSQL — no mocked database
 
 | | |
 | :--: | :--: |
@@ -114,7 +118,7 @@ a worked example to copy from whichever context you extend next.
 | Guide | What's in it |
 | --- | --- |
 | [Architecture](docs/architecture.md) | Why hexagonal, how far it's taken, and how to replace Lunar |
-| [Features](docs/features.md) | Checkout, stock, search, coupons and accounts in depth |
+| [Features](docs/features.md) | Checkout, stock, search, coupons, accounts, content and cart reminders in depth |
 | [Development](docs/development.md) | Install, configure, test, and every quality gate |
 | [Deployment](docs/deployment.md) | FrankenPHP production image and topology |
 
@@ -126,7 +130,8 @@ Deliberately out of scope, so you know what you're picking up:
   USPS/UPS/DHL quotes aren't)
 - Saved address books — customers re-type their address each order
 - Refunds and fulfillment tracking, which live in the admin panel
-- Shipping-status emails (only the order confirmation is sent)
+- Shipping-status emails (order confirmations and abandoned cart
+  reminders are sent; "your order has shipped" isn't)
 - `/terms` and `/privacy` are structural placeholders, **not legal advice**
 
 Full detail in [Not included](docs/features.md#known-limitations).
