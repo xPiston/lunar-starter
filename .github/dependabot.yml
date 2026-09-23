@@ -1,5 +1,10 @@
 version: 2
 
+# Grouping is what keeps this useful. Ungrouped, these ecosystems produce one
+# pull request per package, several of which cannot be merged on their own:
+# a Vite major needs its plugins in the same commit, Inertia's PHP and JS
+# halves have to move together, and a bumped ESLint is only installable once
+# every plugin accepts it.
 updates:
   - package-ecosystem: composer
     directory: /
@@ -10,17 +15,68 @@ updates:
       lunar:
         patterns:
           - 'lunarphp/*'
+      # Upgrading phpunit alone fails to resolve - its own components are
+      # pinned in the lock file and have to move with it.
+      phpunit:
+        patterns:
+          - 'phpunit/*'
+          - 'nunomaduro/collision'
+      dev-tooling:
+        patterns:
+          - 'laravel/pint'
+          - 'larastan/*'
+          - 'laravel/sail'
+          - 'laravel/pail'
+          - 'mockery/mockery'
+          - 'fakerphp/faker'
 
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    groups:
+      # laravel-vite-plugin 3 and @vitejs/plugin-react 6 both require Vite 8:
+      # each one alone is an unresolvable peer dependency.
+      vite:
+        patterns:
+          - 'vite'
+          - '@vitejs/*'
+          - 'laravel-vite-plugin'
+          - '@tailwindcss/vite'
+      inertia:
+        patterns:
+          - '@inertiajs/*'
+      radix:
+        patterns:
+          - '@radix-ui/*'
+      lint:
+        patterns:
+          - 'eslint'
+          - '@eslint/*'
+          - 'eslint-*'
+          - 'typescript-eslint'
+          - 'prettier'
+          - 'prettier-plugin-*'
+    ignore:
+      # ESLint 10 is unreachable while eslint-plugin-react caps its peer at
+      # ^9.7 - its latest release, 7.37.5, still does. Drop this entry once
+      # the plugin supports 10; the group above will carry the whole chain.
+      - dependency-name: 'eslint'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@eslint/js'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Node's odd-numbered releases are never LTS. This image tracks the LTS
+      # line, which Dependabot cannot tell apart on its own, so majors are
+      # taken by hand every October.
+      - dependency-name: 'node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: docker
     directory: /docker/php
