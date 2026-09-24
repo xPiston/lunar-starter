@@ -16,7 +16,7 @@ you can actually refactor.
 
 </div>
 
-<img src="docs/screenshots/storefront.png" alt="Storefront home page: search, category nav and a product grid" width="100%">
+<img src="docs/screenshots/storefront.jpg" alt="Storefront home page: search, category nav, the editable slider and a product grid" width="100%">
 
 ---
 
@@ -56,17 +56,19 @@ Swap the engine later, or don't. Either way the decision stays yours.
 
 | | |
 | :--: | :--: |
-| <img src="docs/screenshots/product.png" alt="Product page with image gallery, size variants and a stock-aware quantity stepper"> | <img src="docs/screenshots/cart.png" alt="Cart with line items, an applied coupon and a live pricing breakdown"> |
-| **Product** — gallery, variants, live stock | **Cart** — coupons, tax, per-line quantities |
-| <img src="docs/screenshots/checkout.png" alt="Checkout showing the cart, address and payment steps"> | <img src="docs/screenshots/home-dark.png" alt="The same storefront home page in dark mode"> |
-| **Checkout** — address, shipping, Stripe | **Dark mode** — one toggle, everywhere |
+| <img src="docs/screenshots/product.jpg" alt="Product page with image gallery, size variants, a star rating and a stock-aware quantity stepper"> | <img src="docs/screenshots/collection.jpg" alt="Collection page with sort, price and stock filters above a paged product grid"> |
+| **Product** — gallery, variants, live stock | **Listings** — sort, filter, paginate |
+| <img src="docs/screenshots/cart.jpg" alt="Cart with line items, an applied coupon and a live pricing breakdown"> | <img src="docs/screenshots/checkout.jpg" alt="Checkout showing the cart, address and payment steps"> |
+| **Cart** — coupons, tax, per-line quantities | **Checkout** — address, shipping, Stripe |
+| <img src="docs/screenshots/reviews.jpg" alt="Product reviews with an average rating, a star breakdown and a verified purchase badge"> | <img src="docs/screenshots/home-dark.jpg" alt="The same storefront home page in dark mode"> |
+| **Reviews** — rated, moderated, verified | **Dark mode** — one toggle, everywhere |
 
 Every page is built mobile-first — the grid reflows, the nav collapses into a
 drawer, and the cart summary stacks under the items:
 
-| | | |
-| :--: | :--: | :--: |
-| <img src="docs/screenshots/m-home.png" alt="Home page at phone width with a two-column product grid"> | <img src="docs/screenshots/m-nav.png" alt="Navigation drawer open over the home page on a phone"> | <img src="docs/screenshots/m-cart.png" alt="Cart at phone width with the pricing summary stacked below the items"> |
+| | | | |
+| :--: | :--: | :--: | :--: |
+| <img src="docs/screenshots/m-home.jpg" alt="Home page at phone width with the slider and a two-column product grid"> | <img src="docs/screenshots/m-nav.jpg" alt="Navigation drawer open over the home page on a phone"> | <img src="docs/screenshots/m-collection.jpg" alt="Collection page at phone width, filters wrapping onto their own rows"> | <img src="docs/screenshots/m-cart.jpg" alt="Cart at phone width with the pricing summary stacked below the items"> |
 
 ## 🚀 Quick start
 
