@@ -11,7 +11,7 @@ you can actually refactor.
 [![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Lunar](https://img.shields.io/badge/Lunar-1.5-1F2937)](https://lunarphp.io)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![Tests](https://img.shields.io/badge/tests-137%20passing-22C55E)](docs/development.md#tests)
+[![Tests](https://img.shields.io/badge/tests-144%20passing-22C55E)](docs/development.md#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 </div>
@@ -37,7 +37,8 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 💳 Checkout: addresses, real shipping rates, tax, Stripe payment
 - 📦 Customer accounts with order history — plus guest order lookup by
   reference + email
-- ✉️ Order confirmation emails, legal page scaffolding
+- ✉️ Order confirmation and status emails — "it has shipped", with a
+  progress bar on the order page
 - ⭐ Product reviews with ratings — moderated in the admin, with the stars
   Google needs for a rich result
 - 🎠 Homepage slider, custom pages and a news section — all editable in the
@@ -52,7 +53,7 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🚦 Rate limiting on every state-changing route
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
-- ✅ 137 feature tests against a real PostgreSQL — no mocked database
+- ✅ 144 feature tests against a real PostgreSQL — no mocked database
 
 | | |
 | :--: | :--: |

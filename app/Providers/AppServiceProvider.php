@@ -5,12 +5,14 @@ namespace App\Providers;
 use App\Filament\Resources\ContentPageResource;
 use App\Filament\Resources\HeroSlideResource;
 use App\Filament\Resources\ProductReviewResource;
+use App\Infrastructure\Lunar\Checkout\OrderStatusObserver;
 use Filament\Panel;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Support\Facades\LunarPanel;
+use Lunar\Models\Order as LunarOrder;
 use Lunar\Shipping\ShippingPlugin;
 
 class AppServiceProvider extends ServiceProvider
@@ -49,6 +51,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+
+        // Lunar fires no event when an order changes status, so this watches
+        // the model itself - which also catches a change made by a command or
+        // a webhook, not just one made in the admin panel. Registered on the
+        // resolved model class because Lunar lets a project swap it.
+        LunarOrder::observe(OrderStatusObserver::class);
     }
 
     /**

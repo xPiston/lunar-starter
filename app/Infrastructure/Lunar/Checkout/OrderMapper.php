@@ -6,6 +6,7 @@ namespace App\Infrastructure\Lunar\Checkout;
 
 use App\Domain\Checkout\Order;
 use App\Domain\Checkout\OrderLine;
+use App\Domain\Checkout\OrderStatus;
 use App\Infrastructure\Lunar\Support\MoneyMapper;
 use Lunar\Models\Order as LunarOrder;
 use Lunar\Models\OrderLine as LunarOrderLine;
@@ -24,6 +25,9 @@ final class OrderMapper
             id: $order->id,
             reference: (string) $order->reference,
             placed: $order->placed_at !== null,
+            // `status` is the handle a shop configures in config/lunar/orders.php;
+            // `status_label` is what Lunar resolves from it for display.
+            status: new OrderStatus((string) $order->status, (string) $order->status_label),
             lines: $order->productLines
                 ->map($this->toLine(...))
                 ->all(),

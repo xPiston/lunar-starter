@@ -15,6 +15,7 @@ final readonly class Order
         public int $id,
         public string $reference,
         public bool $placed,
+        public OrderStatus $status,
         public array $lines,
         public ?Address $shippingAddress,
         public ?Address $billingAddress,
@@ -33,6 +34,7 @@ final readonly class Order
         return [
             'id' => $this->id,
             'reference' => $this->reference,
+            'status' => $this->status->toArray(),
             'placed' => $this->placed,
             'lines' => array_map(
                 static fn (OrderLine $line): array => $line->toArray(),

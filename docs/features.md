@@ -244,6 +244,39 @@ the missing storefront half: a coupon code field.
   [Remove]" once one's set — no discount breakdown by line, since Lunar
   already shows that in its own order/cart admin views.
 
+### Order status notifications
+
+Lunar tracks an order through the statuses configured in
+`config/lunar/orders.php`, and staff move it along from the admin panel.
+Every one of those statuses ships with empty `mailers` and `notifications`
+arrays, so out of the box the shop goes silent after the order confirmation
+and the customer finds out by coming back to look. This fills that in.
+
+- An **allow-list**, in `config/order_notifications.php`: only the statuses
+  listed there are announced, and each one carries the wording of its email.
+  A shop that adds an internal status (`awaiting-stock`, `fraud-check`) to
+  Lunar's config must not start emailing customers about its own bookkeeping,
+  and customer-facing copy is not something to derive from a slug.
+  `payment-received` is deliberately absent: the confirmation already covers
+  that moment, and two emails a minute apart read as a bug.
+- Detected by an **Eloquent observer**, because Lunar fires no event for a
+  status change - moving an order in Filament is a plain model update.
+  Watching the model rather than the admin screen means a status changed by a
+  console command, a webhook or a queued job is announced just the same. It
+  fires on `wasChanged('status')` only, so the admin panel re-saving an order
+  on any edit sends nothing.
+- The observer decides nothing: it builds an `OrderStatusChange` and hands it
+  to `NotifyCustomerOfOrderStatus`. What a shop announces is a business rule,
+  testable without touching Lunar or an Eloquent event.
+- The order page - account and guest lookup alike - shows a progress bar built
+  from the same map the emails are keyed on, so what a customer reads and what
+  they were told cannot drift apart. A status off that path (cancelled,
+  refunded) is shown as a plain label: it did not reach "step 2 of 4", it left
+  the path.
+- Not included: a tracking number and carrier. Lunar has no field for either,
+  so it needs a column of the application's own plus somewhere in the admin to
+  type it - the obvious next step, and deliberately not faked here.
+
 ### Abandoned cart reminders
 
 One email to whoever left items behind, with a link that puts the cart back in
@@ -318,9 +351,10 @@ Set `APP_NAME`, `SEO_DESCRIPTION` and `SEO_IMAGE` (an absolute URL to a
   accounts and order history](#customer-accounts-and-order-history).
 - Refunds and other post-order actions: already covered by Lunar's Filament
   panel, not reimplemented on the storefront side.
-- No shipping/delivery-status emails — the order confirmation and the
-  abandoned cart reminder are the only two the template sends. "Your order
-  has shipped" would need fulfillment status, which nothing here tracks yet.
+- No tracking number or carrier on an order: Lunar has no field for either,
+  so the shipped-status email says an order has left, not where it is. It
+  needs a column of the application's own and somewhere in the admin to type
+  it — see [Order status notifications](#order-status-notifications).
 - One reminder per abandoned cart, not a sequence. A second and third email
   on a delay is the usual next step, and the schedule + `cart_reminders`
   table are where it would go.

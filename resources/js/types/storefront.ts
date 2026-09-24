@@ -179,7 +179,15 @@ export interface OrderLine {
     line_total: Money;
 }
 
+export interface OrderStatus {
+    // Lunar's configured status handle - what logic keys on.
+    handle: string;
+    // What the customer reads.
+    label: string;
+}
+
 export interface Order {
+    status: OrderStatus;
     id: number;
     reference: string;
     placed: boolean;
