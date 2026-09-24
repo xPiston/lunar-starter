@@ -142,6 +142,43 @@ for it.
   attribute) — nothing on this template's side hardcodes "name" and
   "description".
 
+### Listings: paging, sorting, filtering
+
+Collection pages and search results are paged (24 per page), sortable
+(newest, price up or down, alphabetical) and filterable (price range, in
+stock only). Before this, both were capped at a hard limit of 24 rows —
+**every product past the second dozen was unreachable**, from a visitor and
+from a crawler alike.
+
+- The port speaks in a `ProductQuery` (page, sort, filters) and answers with
+  a `ProductListing` (the rows plus the total). One object rather than a
+  growing parameter list, so the next filter doesn't change the signature of
+  every method that carries it, and a caller can never again receive rows
+  without knowing whether there are more.
+- `sort` is validated against the `ProductSort` enum before it reaches an
+  `order by`, so no column name can arrive from a query string. `per_page` is
+  capped for the same class of reason: nobody gets to ask for the whole
+  catalogue in one request.
+- Sorting by price orders on the **base** price (current currency, single
+  unit, no customer group), because the price `Pricing::for()` resolves
+  depends on who is looking and cannot be a column to sort a page by. With no
+  group pricing — the default here — the two agree exactly; with it, a
+  listing can disagree with a card's "from" price, and the answer at that
+  point is a search index holding a price per group, not a heavier join.
+- Ordering by name reads the `name` attribute out of the JSON column, which
+  assumes it is plain `Text`, as Lunar ships it. Switched to `TranslatedText`
+  it sorts by the raw JSON instead: wrong, harmless, and fixed with a
+  generated column or that same index.
+- Every sort ends on the id so rows comparing equal keep a fixed order
+  between two requests. Note this is defensive, not test-proven: Postgres
+  returns tied rows consistently at the sizes tested, so removing the
+  tie-breaker leaves the suite green. The database guarantees nothing about
+  ties, which is reason enough to keep it.
+- A plain page 2 is indexable — it holds products nothing else links to. A
+  filtered or reordered listing is `noindex`: every combination is the same
+  catalogue sliced differently, and crawlers would spend their budget
+  enumerating them.
+
 ### Coupon codes
 
 Discounts (percentage/fixed-amount off, buy-X-get-Y, product/collection/brand

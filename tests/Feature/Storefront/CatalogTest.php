@@ -122,8 +122,8 @@ final class CatalogTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('storefront/collection')
-                ->has('products', 1)
-                ->where('products.0.name', $inCollection->translateAttribute('name'))
+                ->has('listing.items', 1)
+                ->where('listing.items.0.name', $inCollection->translateAttribute('name'))
             );
     }
 }

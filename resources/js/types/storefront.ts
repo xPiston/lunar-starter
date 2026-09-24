@@ -51,6 +51,27 @@ export interface HeroSlide {
     link_url: string | null;
 }
 
+export interface ProductListing {
+    items: ProductSummary[];
+    total: number;
+    page: number;
+    per_page: number;
+    last_page: number;
+}
+
+export interface ListingFilters {
+    sort: string;
+    // Minor units, like every amount crossing the wire.
+    min_price: number | null;
+    max_price: number | null;
+    in_stock_only: boolean;
+}
+
+export interface SortOption {
+    value: string;
+    label: string;
+}
+
 export interface ContentPageSummary {
     id: number;
     type: 'page' | 'post';

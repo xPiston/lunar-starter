@@ -30,8 +30,8 @@ final class SearchTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('storefront/search')
                 ->where('query', 'Navy')
-                ->has('products', 1)
-                ->where('products.0.name', 'Navy Plain T-Shirt')
+                ->has('listing.items', 1)
+                ->where('listing.items.0.name', 'Navy Plain T-Shirt')
             );
     }
 
@@ -44,7 +44,7 @@ final class SearchTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('storefront/search')
                 ->where('query', '')
-                ->has('products', 0)
+                ->has('listing.items', 0)
             );
     }
 
@@ -54,7 +54,7 @@ final class SearchTest extends TestCase
 
         $this->get(route('search', ['q' => 'nonexistent-widget']))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->has('products', 0));
+            ->assertInertia(fn (Assert $page) => $page->has('listing.items', 0));
     }
 
     public function test_search_only_returns_published_products(): void
@@ -64,6 +64,6 @@ final class SearchTest extends TestCase
 
         $this->get(route('search', ['q' => 'Navy']))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->has('products', 0));
+            ->assertInertia(fn (Assert $page) => $page->has('listing.items', 0));
     }
 }

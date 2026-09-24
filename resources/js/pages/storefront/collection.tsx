@@ -1,14 +1,18 @@
+import { ListingControls } from '@/components/storefront/listing-controls';
+import { Pagination } from '@/components/storefront/pagination';
 import { ProductCard } from '@/components/storefront/product-card';
 import StorefrontLayout from '@/layouts/storefront-layout';
-import type { ProductSummary } from '@/types/storefront';
+import type { ListingFilters, ProductListing, SortOption } from '@/types/storefront';
 import { Head, Link } from '@inertiajs/react';
 
 interface CollectionProps {
     collectionSlug: string;
-    products: ProductSummary[];
+    listing: ProductListing;
+    filters: ListingFilters;
+    sortOptions: SortOption[];
 }
 
-export default function CollectionPage({ collectionSlug, products }: CollectionProps) {
+export default function CollectionPage({ collectionSlug, listing, filters, sortOptions }: CollectionProps) {
     const collectionName = collectionSlug.replace(/-/g, ' ');
 
     return (
@@ -24,17 +28,23 @@ export default function CollectionPage({ collectionSlug, products }: CollectionP
             </div>
 
             <h1 className="mb-6 text-2xl font-semibold capitalize">
-                {collectionName} <span className="text-muted-foreground text-base font-normal">({products.length})</span>
+                {collectionName} <span className="text-muted-foreground text-base font-normal">({listing.total})</span>
             </h1>
 
-            {products.length === 0 ? (
-                <p className="text-muted-foreground">No products in this collection.</p>
+            <ListingControls filters={filters} sortOptions={sortOptions} total={listing.total} />
+
+            {listing.items.length === 0 ? (
+                <p className="text-muted-foreground">No products match what you asked for.</p>
             ) : (
-                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-                    {products.map((product) => (
-                        <ProductCard key={product.id} product={product} />
-                    ))}
-                </div>
+                <>
+                    <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+                        {listing.items.map((product) => (
+                            <ProductCard key={product.id} product={product} />
+                        ))}
+                    </div>
+
+                    <Pagination page={listing.page} lastPage={listing.last_page} />
+                </>
             )}
         </StorefrontLayout>
     );

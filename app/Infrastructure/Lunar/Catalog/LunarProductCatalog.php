@@ -7,9 +7,17 @@ namespace App\Infrastructure\Lunar\Catalog;
 use App\Domain\Catalog\CollectionSummary;
 use App\Domain\Catalog\Port\ProductCatalog;
 use App\Domain\Catalog\Product;
+use App\Domain\Catalog\ProductListing;
+use App\Domain\Catalog\ProductQuery;
+use App\Domain\Catalog\ProductSort;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Lunar\Facades\StorefrontSession;
 use Lunar\Models\Collection as LunarCollection;
+use Lunar\Models\Currency as LunarCurrency;
+use Lunar\Models\Price as LunarPrice;
 use Lunar\Models\Product as LunarProduct;
+use Lunar\Models\ProductVariant as LunarProductVariant;
 use Lunar\Models\Url;
 
 /**
@@ -41,22 +49,21 @@ final class LunarProductCatalog implements ProductCatalog
         return $products->map($this->mapper->toSummary(...))->all();
     }
 
-    public function listByCollection(string $collectionSlug, int $limit = 24): array
+    public function listByCollection(string $collectionSlug, ProductQuery $query): ProductListing
     {
         $collection = $this->findCollectionBySlug($collectionSlug);
 
         if (! $collection) {
-            return [];
+            return ProductListing::empty($query);
         }
 
-        $products = $collection->products()
-            ->status('published')
-            ->channel(StorefrontSession::getChannel())
-            ->with(['variants.values', 'media'])
-            ->limit($limit)
-            ->get();
+        // The relation's underlying builder, already constrained to this
+        // collection. Typed locally because Lunar resolves its models at
+        // runtime, so the relation's generic is a bare Eloquent Model here.
+        /** @var Builder<LunarProduct> $products */
+        $products = $collection->products()->getQuery();
 
-        return $products->map($this->mapper->toSummary(...))->all();
+        return $this->paginate($products, $query);
     }
 
     /**
@@ -73,23 +80,145 @@ final class LunarProductCatalog implements ProductCatalog
      * re-applies the same published/channel/eager-loading rules as every
      * other listing here - search never bypasses product visibility.
      */
-    public function search(string $query, int $limit = 24): array
+    public function search(string $term, ProductQuery $query): ProductListing
     {
-        $ids = LunarProduct::search($query)->keys();
+        $ids = LunarProduct::search($term)->keys();
 
         if ($ids->isEmpty()) {
-            return [];
+            return ProductListing::empty($query);
         }
 
-        $products = LunarProduct::query()
-            ->whereIn('id', $ids)
+        return $this->paginate(LunarProduct::query()->whereIn('id', $ids), $query);
+    }
+
+    /**
+     * Applies visibility, filters, ordering and the page window to a product
+     * query, and counts the whole set before slicing it.
+     *
+     * @param  Builder<LunarProduct>  $products
+     */
+    private function paginate(Builder $products, ProductQuery $query): ProductListing
+    {
+        $products
             ->status('published')
-            ->channel(StorefrontSession::getChannel())
+            ->channel(StorefrontSession::getChannel());
+
+        $this->applyFilters($products, $query);
+
+        // Counted before the ordering and the window: a page is only
+        // meaningful against the size of the whole result.
+        $total = (clone $products)->distinct()->count('lunar_products.id');
+
+        $this->applySort($products, $query);
+
+        $page = $products
             ->with(['variants.values', 'media'])
-            ->limit($limit)
+            ->offset($query->offset())
+            ->limit($query->perPage)
             ->get();
 
-        return $products->map($this->mapper->toSummary(...))->all();
+        return new ProductListing(
+            items: $page->map($this->mapper->toSummary(...))->all(),
+            total: $total,
+            page: $query->page,
+            perPage: $query->perPage,
+        );
+    }
+
+    /**
+     * @param  Builder<LunarProduct>  $products
+     */
+    private function applyFilters(Builder $products, ProductQuery $query): void
+    {
+        if ($query->inStockOnly) {
+            // "Available", not "stock > 0": a variant marked purchasable
+            // `always` has no stock to speak of and is still buyable, which is
+            // exactly what the cart's own check allows.
+            $products->whereHas('variants', function (Builder $variants): void {
+                $variants->where('purchasable', 'always')->orWhere('stock', '>', 0);
+            });
+        }
+
+        if ($query->minPrice !== null) {
+            $products->whereHas('variants.prices', fn (Builder $prices) => $this->basePrices($prices)->where('price', '>=', $query->minPrice));
+        }
+
+        if ($query->maxPrice !== null) {
+            $products->whereHas('variants.prices', fn (Builder $prices) => $this->basePrices($prices)->where('price', '<=', $query->maxPrice));
+        }
+    }
+
+    /**
+     * @param  Builder<LunarProduct>  $products
+     */
+    private function applySort(Builder $products, ProductQuery $query): void
+    {
+        match ($query->sort) {
+            ProductSort::Newest => $products->latest('lunar_products.created_at'),
+            // A product's name is an attribute in a JSON column, not a
+            // column, so alphabetical order reads it out of the document.
+            // This assumes the `name` attribute is plain Text, which is what
+            // Lunar ships and what this template seeds; switch it to
+            // TranslatedText and the order becomes the raw JSON's, which is
+            // wrong but harmless - the fix at that point is a generated
+            // column, or the search index that faceted sorting wants anyway.
+            ProductSort::NameAToZ => $products->orderByRaw("lunar_products.attribute_data->'name'->>'value' asc"),
+            ProductSort::PriceLowToHigh => $products->orderBy($this->cheapestPrice(), 'asc'),
+            ProductSort::PriceHighToLow => $products->orderBy($this->cheapestPrice(), 'desc'),
+        };
+
+        // Every sort ends on the id so a product never changes page between
+        // two requests because two rows compared equal.
+        $products->orderBy('lunar_products.id');
+    }
+
+    /**
+     * The cheapest base price of a product, as a subquery the database can
+     * order by.
+     *
+     * Base price, not the one `Pricing::for()` would resolve: that one
+     * depends on the customer group and quantity tier of whoever is looking,
+     * which cannot be expressed as a column to sort a page by. With no group
+     * pricing configured - the default here - the two agree exactly. With
+     * group pricing, a listing sorted by price can disagree with the "from"
+     * price shown on a card, and the answer at that point is an index
+     * (Meilisearch, Algolia) holding a price per group, not a heavier join.
+     *
+     * @return Builder<Model>
+     */
+    private function cheapestPrice(): Builder
+    {
+        /** @var Builder<Model> $prices */
+        $prices = LunarPrice::query()
+            ->selectRaw('min(price)')
+            ->where('priceable_type', (new LunarProductVariant)->getMorphClass())
+            ->whereIn('priceable_id', LunarProductVariant::query()
+                ->select('id')
+                ->whereColumn('product_id', 'lunar_products.id'));
+
+        return $this->basePrices($prices);
+    }
+
+    /**
+     * The list price everyone sees: current currency, single unit, no
+     * customer group.
+     *
+     * Typed against a bare Model rather than LunarPrice: it is handed both a
+     * price query built here and the one Eloquent passes to a `whereHas`
+     * closure, which Lunar's runtime model resolution leaves ungeneric.
+     *
+     * @param  Builder<Model>  $prices
+     * @return Builder<Model>
+     */
+    private function basePrices(Builder $prices): Builder
+    {
+        /** @var LunarCurrency $currency */
+        $currency = StorefrontSession::getCurrency();
+
+        return $prices
+            ->where('currency_id', $currency->id)
+            ->whereNull('customer_group_id')
+            ->where('min_quantity', '<=', 1);
     }
 
     public function findBySlug(string $slug): ?Product

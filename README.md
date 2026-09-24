@@ -11,7 +11,7 @@ you can actually refactor.
 [![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Lunar](https://img.shields.io/badge/Lunar-1.5-1F2937)](https://lunarphp.io)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![Tests](https://img.shields.io/badge/tests-116%20passing-22C55E)](docs/development.md#tests)
+[![Tests](https://img.shields.io/badge/tests-125%20passing-22C55E)](docs/development.md#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 </div>
@@ -31,7 +31,8 @@ Swap the engine later, or don't. Either way the decision stays yours.
 
 **Storefront**
 
-- 🔎 Product catalog, collections and full-text search
+- 🔎 Product catalog, collections and full-text search — paged,
+  sortable and filterable
 - 🛒 Cart with live stock enforcement and coupon codes
 - 💳 Checkout: addresses, real shipping rates, tax, Stripe payment
 - 📦 Customer accounts with order history — plus guest order lookup by
@@ -49,7 +50,7 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🚦 Rate limiting on every state-changing route
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
-- ✅ 116 feature tests against a real PostgreSQL — no mocked database
+- ✅ 125 feature tests against a real PostgreSQL — no mocked database
 
 | | |
 | :--: | :--: |
