@@ -9,6 +9,7 @@ use App\Domain\Cart\CartLineException;
 use App\Domain\Cart\CartRecovery;
 use App\Domain\Cart\InvalidCouponException;
 use App\Domain\Cart\Port\CartGateway;
+use App\Models\ProductBundle;
 use Illuminate\Support\Facades\Session;
 use Lunar\Exceptions\Carts\CartException;
 use Lunar\Facades\CartSession;
@@ -94,6 +95,28 @@ final class LunarCartGateway implements CartGateway
 
         try {
             $cart = CartSession::current()->add($variant, $quantity);
+        } catch (CartException $exception) {
+            throw new CartLineException($exception->getMessage(), previous: $exception);
+        }
+
+        return $this->mapper->toDomain($cart);
+    }
+
+    /**
+     * A bundle is one of this application's own models implementing Lunar's
+     * `Purchasable`, so from here on it is the same call as any other line -
+     * including the stock check, which the bundle answers from its scarcest
+     * part.
+     */
+    public function addBundle(int $bundleId, int $quantity): Cart
+    {
+        $bundle = ProductBundle::query()
+            ->active()
+            ->with('items.variant')
+            ->findOrFail($bundleId);
+
+        try {
+            $cart = CartSession::current()->add($bundle, $quantity);
         } catch (CartException $exception) {
             throw new CartLineException($exception->getMessage(), previous: $exception);
         }

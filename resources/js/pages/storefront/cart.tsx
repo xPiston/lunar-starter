@@ -65,6 +65,9 @@ function CartLineRow({ line }: { line: CartLine }) {
 
             <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{line.name}</p>
+                {/* The size for a variant, the contents for a bundle - so a
+                    basket says what is actually in it. */}
+                {line.options && <p className="text-muted-foreground truncate text-sm">{line.options}</p>}
                 <p className="text-muted-foreground text-sm">{line.unit_price.formatted} / unit</p>
 
                 <div className="mt-3 flex items-center gap-3">

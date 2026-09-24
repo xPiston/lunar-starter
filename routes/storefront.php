@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Storefront\AccountController;
+use App\Http\Controllers\Storefront\BundleController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CartRecoveryController;
 use App\Http\Controllers\Storefront\CheckoutController;
@@ -22,6 +23,12 @@ Route::get('/', HomeController::class)->name('home');
 Route::get('/collections/{slug}', CollectionController::class)->name('collections.show');
 Route::get('/products/{slug}', ProductController::class)->name('products.show');
 Route::get('/search', SearchController::class)->name('search');
+
+// Bundles: several products sold together at their own price. They are a
+// purchasable of this application's own (see App\Models\ProductBundle), so
+// everything past "add to cart" is the ordinary cart and checkout.
+Route::get('/bundles', [BundleController::class, 'index'])->name('bundles.index');
+Route::get('/bundles/{slug}', [BundleController::class, 'show'])->name('bundles.show');
 
 // Editorial content, authored in the back office. Two shapes of the same
 // thing: /news is the dated, listed one, /pages/{slug} the standalone one.
@@ -92,6 +99,7 @@ Route::post('/orders/lookup', [GuestOrderLookupController::class, 'find'])
 // what any public page already has. State-changing storefront actions do.
 Route::middleware('throttle:storefront-write')->group(function (): void {
     Route::post('/cart/lines', [CartController::class, 'store'])->name('cart.lines.store');
+    Route::post('/cart/bundles', [CartController::class, 'storeBundle'])->name('cart.bundles.store');
     Route::patch('/cart/lines/{line}', [CartController::class, 'update'])->name('cart.lines.update');
     Route::delete('/cart/lines/{line}', [CartController::class, 'destroy'])->name('cart.lines.destroy');
     Route::post('/cart/coupon', [CartController::class, 'applyCoupon'])->name('cart.coupon.store');

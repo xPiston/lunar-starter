@@ -7,12 +7,14 @@ namespace App\Providers;
 use App\Domain\Account\Port\OrderHistory;
 use App\Domain\Cart\Port\CartGateway;
 use App\Domain\Cart\Port\CartReminders;
+use App\Domain\Catalog\Port\BundleCatalog;
 use App\Domain\Catalog\Port\ProductCatalog;
 use App\Domain\Checkout\Port\CheckoutGateway;
 use App\Domain\Content\Port\ContentPages;
 use App\Domain\Content\Port\HeroSlides;
 use App\Domain\Review\Port\ProductReviews;
 use App\Domain\Review\Port\PurchaseCheck;
+use App\Infrastructure\Eloquent\Catalog\EloquentBundleCatalog;
 use App\Infrastructure\Eloquent\Content\EloquentContentPages;
 use App\Infrastructure\Eloquent\Content\EloquentHeroSlides;
 use App\Infrastructure\Eloquent\Review\EloquentProductReviews;
@@ -49,6 +51,11 @@ final class DomainServiceProvider extends ServiceProvider
         $this->app->bind(HeroSlides::class, EloquentHeroSlides::class);
         $this->app->bind(ContentPages::class, EloquentContentPages::class);
         $this->app->bind(ProductReviews::class, EloquentProductReviews::class);
+
+        // Bundles are the application's own offer built out of Lunar's
+        // products, so the adapter is ours even though it prices through
+        // Lunar.
+        $this->app->bind(BundleCatalog::class, EloquentBundleCatalog::class);
 
         // The one context wired to both: reviews are ours, the purchase they
         // claim to be based on is Lunar's.

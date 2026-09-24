@@ -89,9 +89,10 @@ had to add the read side.
 
 ### Stock management
 
-Lunar validates stock on every cart mutation by default
-(`config/lunar/cart.php`'s `CartLineStock` validator) — but only for a
-variant explicitly marked `purchasable = 'in_stock'` with a `stock` count;
+Stock is validated on every cart mutation
+(`config/lunar/cart.php`'s validator list, where `CartLineTotalStock`
+replaces Lunar's own — see [Product bundles](#product-bundles) for why) — but
+only for a variant explicitly marked `purchasable = 'in_stock'` with a `stock` count;
 the model's own default, `purchasable = 'always'`, is unlimited/made-to-order
 and skips the check entirely. `database/seeders/DemoCatalogSeeder.php` sets
 both fields so the demo catalog actually enforces stock out of the box, with
@@ -178,6 +179,56 @@ from a crawler alike.
   filtered or reordered listing is `noindex`: every combination is the same
   catalogue sliced differently, and crawlers would spend their budget
   enumerating them.
+
+### Product bundles
+
+Several products sold together at their own price. `/bundles`, and a page per
+bundle.
+
+**Lunar needs no modification for this, and no upstream contribution was
+required.** A cart line points at any `Lunar\Base\Purchasable` through a
+morph, and Lunar's own validators branch on whether that purchasable is a
+variant:
+
+```php
+// vendor/lunarphp/core/src/Validation/CartLine/CartLineAvailability.php
+if (! $purchasable instanceof ProductVariantContract) {
+    return $purchasable->isPurchasable() ? $this->pass() : $this->fail…
+}
+```
+
+So `App\Models\ProductBundle` implements that contract, and the cart,
+pricing, tax, shipping and order pipelines take it unchanged.
+
+- **Availability is the scarcest part's.** Three of a bundle containing two
+  belts means six belts. A part marked `purchasable: always` places no limit
+  and is skipped rather than counted as zero.
+- The price is the bundle's own, stored in Lunar's polymorphic price table -
+  the same one variants use, so currency and customer-group rules apply to it
+  unchanged. The storefront shows it against the sum of the parts, because a
+  bundle that isn't cheaper isn't an offer.
+- A bundle with no artwork of its own is shown as a **mosaic of its parts'
+  photos** rather than one part standing in for the whole box, and each entry
+  in "what's in it" carries its own picture. A shop that uploads a real
+  bundle shot gets that instead.
+- A **morph alias** (`'bundle'`) is registered rather than storing the class
+  name: without it, renaming or moving the model would orphan every line ever
+  sold. `morphMap`, not `enforceMorphMap` - the latter also demands an entry
+  for every other morphed model, including Laravel's own User.
+- Lunar's published `config/lunar/cart.php` eager-loads `taxClass`, `values`
+  and `product`, which only exist on a variant: a cart holding a bundle threw
+  `RelationNotFoundException` before rendering. The per-type loading is
+  registered in `AppServiceProvider` with `morphWith`, because it needs a
+  closure and a closure cannot survive `config:cache`.
+
+**A pre-existing stock bug, found on the way and fixed:** Lunar's
+`CartLineStock` asks whether the *incoming* quantity can be fulfilled,
+ignoring what the cart already holds. Add two of something with three in
+stock, then two more, and the cart holds four - each request passed on its
+own. Verified against a plain product variant too, so it is not specific to
+bundles. `App\Infrastructure\Lunar\Cart\CartLineTotalStock` replaces it in
+the validator list and checks the resulting total; both cases are covered in
+`tests/Feature/Storefront/BundleTest.php`. **Worth reporting upstream.**
 
 ### Product reviews
 

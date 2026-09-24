@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Application\Cart\AddBundleToCart;
 use App\Application\Cart\AddProductToCart;
 use App\Application\Cart\ApplyCoupon;
 use App\Application\Cart\RemoveCartLine;
@@ -46,6 +47,29 @@ final class CartController extends Controller
         }
 
         return back()->with('success', 'Product added to cart.');
+    }
+
+    /**
+     * Same shape as store(), a different thing bought: a bundle resolves to
+     * one cart line whose availability is that of its scarcest part.
+     */
+    public function storeBundle(Request $request, AddBundleToCart $addBundleToCart): RedirectResponse
+    {
+        $data = $request->validate([
+            'bundle_id' => ['required', 'integer'],
+            'quantity' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $addBundleToCart->handle(
+                bundleId: (int) $data['bundle_id'],
+                quantity: (int) ($data['quantity'] ?? 1),
+            );
+        } catch (CartLineException $exception) {
+            return back()->withErrors(['quantity' => $exception->getMessage()]);
+        }
+
+        return back()->with('success', 'Bundle added to cart.');
     }
 
     public function update(Request $request, int $line, UpdateCartLineQuantity $updateCartLineQuantity): RedirectResponse

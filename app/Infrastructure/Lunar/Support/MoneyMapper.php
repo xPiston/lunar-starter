@@ -7,6 +7,7 @@ namespace App\Infrastructure\Lunar\Support;
 use App\Domain\Shared\Money;
 use Lunar\Base\DataTransferObjects\PricingResponse;
 use Lunar\DataTypes\Price as LunarPrice;
+use Lunar\Models\Currency;
 
 /**
  * ONLY conversion point between Lunar's price types and our Money VO.
@@ -22,6 +23,16 @@ final class MoneyMapper
             currencyCode: $price->currency->code,
             formatted: (string) $price->formatted(),
         );
+    }
+
+    /**
+     * For an amount this application worked out itself - the sum of a
+     * bundle's parts, say - which still has to be formatted the way every
+     * other price in the shop is.
+     */
+    public function fromMinorUnits(int $amount, Currency $currency): Money
+    {
+        return $this->fromLunarPrice(new LunarPrice($amount, $currency, 1));
     }
 
     /**

@@ -72,6 +72,28 @@ export interface SortOption {
     label: string;
 }
 
+export interface BundleItem {
+    name: string;
+    quantity: number;
+    product_slug: string | null;
+    image_url: string | null;
+}
+
+export interface Bundle {
+    id: number;
+    name: string;
+    slug: string;
+    description: string | null;
+    image_url: string | null;
+    items: BundleItem[];
+    price: Money;
+    // What the same contents cost bought separately, and the difference.
+    items_total: Money;
+    savings: Money;
+    // null = nothing in the bundle limits it.
+    available_stock: number | null;
+}
+
 export interface Review {
     id: number;
     rating: number;
@@ -106,8 +128,9 @@ export interface ContentPage extends ContentPageSummary {
 
 export interface CartLine {
     id: number;
-    product_variant_id: number;
     name: string;
+    // "M", or "1x Tee (S), 2x Socks" for a bundle.
+    options: string;
     thumbnail_url: string | null;
     quantity: number;
     unit_price: Money;

@@ -50,6 +50,19 @@ interface CartGateway
     public function addLine(int $productVariantId, int $quantity): Cart;
 
     /**
+     * Adds a bundle - several products sold together - as a single line.
+     *
+     * A separate method rather than a flag on addLine(): a bundle is a
+     * different kind of thing to buy, and the adapter has to resolve it from
+     * a different table. What happens after that is identical, which is the
+     * point.
+     *
+     * @throws CartLineException Not enough of the scarcest part to make up
+     *                           that many bundles, or the bundle is no longer on offer.
+     */
+    public function addBundle(int $bundleId, int $quantity): Cart;
+
+    /**
      * @throws CartLineException Same reasons as addLine().
      */
     public function updateLine(int $cartLineId, int $quantity): Cart;

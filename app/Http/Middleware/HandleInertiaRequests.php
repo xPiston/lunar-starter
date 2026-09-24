@@ -9,6 +9,7 @@ use App\Domain\Catalog\CollectionSummary;
 use App\Domain\Content\ContentPageSummary;
 use App\Domain\Content\ContentType;
 use App\Http\Seo\PageMeta;
+use App\Models\ProductBundle;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -116,14 +117,14 @@ class HandleInertiaRequests extends Middleware
      * excerpts and images the summaries also carry would be dead weight in
      * every single response. Same storefront gating as navCollections above.
      *
-     * @return array{pages: array<int, array{title: string, slug: string}>, has_news: bool}
+     * @return array{pages: array<int, array{title: string, slug: string}>, has_news: bool, has_bundles: bool}
      */
     private function navContent(Request $request): array
     {
         $middleware = $request->route()?->gatherMiddleware() ?? [];
 
         if (! in_array(MarkStorefrontRequest::class, $middleware, true)) {
-            return ['pages' => [], 'has_news' => false];
+            return ['pages' => [], 'has_news' => false, 'has_bundles' => false];
         }
 
         $content = app(ListPublishedContent::class)->handle();
@@ -143,6 +144,10 @@ class HandleInertiaRequests extends Middleware
                 $content,
                 static fn (ContentPageSummary $entry): bool => $entry->type === ContentType::Post,
             ),
+            // Same rule as News: the tab appears once there is something
+            // behind it. `exists()` rather than the list - the navbar only
+            // needs to know whether to show a link.
+            'has_bundles' => ProductBundle::query()->active()->exists(),
         ];
     }
 }

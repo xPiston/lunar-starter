@@ -4,15 +4,20 @@ namespace App\Providers;
 
 use App\Filament\Resources\ContentPageResource;
 use App\Filament\Resources\HeroSlideResource;
+use App\Filament\Resources\ProductBundleResource;
 use App\Filament\Resources\ProductReviewResource;
 use App\Infrastructure\Lunar\Checkout\OrderStatusObserver;
+use App\Models\ProductBundle;
 use Filament\Panel;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Lunar\Admin\Support\Facades\LunarPanel;
 use Lunar\Models\Order as LunarOrder;
+use Lunar\Models\ProductVariant;
 use Lunar\Shipping\ShippingPlugin;
 
 class AppServiceProvider extends ServiceProvider
@@ -40,7 +45,12 @@ class AppServiceProvider extends ServiceProvider
         LunarPanel::forceTwoFactorAuth()
             ->panel(fn (Panel $panel) => $panel
                 ->plugin(new ShippingPlugin)
-                ->resources([HeroSlideResource::class, ContentPageResource::class, ProductReviewResource::class])
+                ->resources([
+                    HeroSlideResource::class,
+                    ContentPageResource::class,
+                    ProductReviewResource::class,
+                    ProductBundleResource::class,
+                ])
             )
             ->register();
     }
@@ -57,6 +67,32 @@ class AppServiceProvider extends ServiceProvider
         // a webhook, not just one made in the admin panel. Registered on the
         // resolved model class because Lunar lets a project swap it.
         LunarOrder::observe(OrderStatusObserver::class);
+
+        // A cart or order line stores its purchasable as a morph. Without an
+        // alias that column holds a fully-qualified class name, and renaming
+        // or moving the model would orphan every line ever sold.
+        // morphMap, not enforceMorphMap: the latter also demands an entry for
+        // every other morphed model in the application - including Laravel's
+        // own User - and throws on the first one that has none.
+        Relation::morphMap([
+            'bundle' => ProductBundle::class,
+        ]);
+
+        // What to eager load per kind of purchasable. Lunar's published
+        // config lists `taxClass`, `values` and `product`, which only exist
+        // on a product variant - a cart holding a bundle would throw
+        // RelationNotFoundException before rendering. `morphWith` is the
+        // Eloquent answer, and it needs a closure, which is why this cannot
+        // live in a config file that has to survive `config:cache`.
+        config(['lunar.cart.eager_load' => array_merge(
+            (array) config('lunar.cart.eager_load', []),
+            [
+                'lines.purchasable' => fn (MorphTo $purchasable) => $purchasable->morphWith([
+                    ProductVariant::class => ['taxClass', 'values', 'product.thumbnail'],
+                    ProductBundle::class => ['items.variant.product'],
+                ]),
+            ],
+        )]);
     }
 
     /**

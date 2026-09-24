@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
         $this->call(DemoCatalogSeeder::class);
         $this->call(HeroSlideSeeder::class);
         $this->call(ContentPageSeeder::class);
+        $this->call(ProductBundleSeeder::class);
         $this->call(ShippingDefaultsSeeder::class);
         $this->call(TaxDefaultsSeeder::class);
         $this->call(DiscountDefaultsSeeder::class);

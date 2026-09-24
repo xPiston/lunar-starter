@@ -30,6 +30,7 @@ function useNavLinks(): NavLink[] {
             label: collection.name,
             href: route('collections.show', collection.slug),
         })),
+        ...(navContent?.has_bundles ? [{ label: 'Bundles', href: route('bundles.index') }] : []),
         ...(navContent?.has_news ? [{ label: 'News', href: route('news.index') }] : []),
         { label: 'Track an order', href: route('orders.lookup') },
     ];

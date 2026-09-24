@@ -11,7 +11,7 @@ you can actually refactor.
 [![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Lunar](https://img.shields.io/badge/Lunar-1.5-1F2937)](https://lunarphp.io)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![Tests](https://img.shields.io/badge/tests-144%20passing-22C55E)](docs/development.md#tests)
+[![Tests](https://img.shields.io/badge/tests-153%20passing-22C55E)](docs/development.md#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 </div>
@@ -39,6 +39,8 @@ Swap the engine later, or don't. Either way the decision stays yours.
   reference + email
 - ✉️ Order confirmation and status emails — "it has shipped", with a
   progress bar on the order page
+- 📦 Product bundles — sold as one line, priced on their own, limited by
+  their scarcest part
 - ⭐ Product reviews with ratings — moderated in the admin, with the stars
   Google needs for a rich result
 - 🎠 Homepage slider, custom pages and a news section — all editable in the
@@ -53,16 +55,18 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🚦 Rate limiting on every state-changing route
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
-- ✅ 144 feature tests against a real PostgreSQL — no mocked database
+- ✅ 153 feature tests against a real PostgreSQL — no mocked database
 
 | | |
 | :--: | :--: |
 | <img src="docs/screenshots/product.jpg" alt="Product page with image gallery, size variants, a star rating and a stock-aware quantity stepper"> | <img src="docs/screenshots/collection.jpg" alt="Collection page with sort, price and stock filters above a paged product grid"> |
 | **Product** — gallery, variants, live stock | **Listings** — sort, filter, paginate |
-| <img src="docs/screenshots/cart.jpg" alt="Cart with line items, an applied coupon and a live pricing breakdown"> | <img src="docs/screenshots/checkout.jpg" alt="Checkout showing the cart, address and payment steps"> |
-| **Cart** — coupons, tax, per-line quantities | **Checkout** — address, shipping, Stripe |
-| <img src="docs/screenshots/reviews.jpg" alt="Product reviews with an average rating, a star breakdown and a verified purchase badge"> | <img src="docs/screenshots/home-dark.jpg" alt="The same storefront home page in dark mode"> |
-| **Reviews** — rated, moderated, verified | **Dark mode** — one toggle, everywhere |
+| <img src="docs/screenshots/bundles.jpg" alt="Bundles page: two sets of products, each with its contents, price and what it saves"> | <img src="docs/screenshots/cart.jpg" alt="Cart with line items, an applied coupon and a live pricing breakdown"> |
+| **Bundles** — one line, one price, real stock | **Cart** — coupons, tax, per-line quantities |
+| <img src="docs/screenshots/checkout.jpg" alt="Checkout showing the cart, address and payment steps"> | <img src="docs/screenshots/reviews.jpg" alt="Product reviews with an average rating, a star breakdown and a verified purchase badge"> |
+| **Checkout** — address, shipping, Stripe | **Reviews** — rated, moderated, verified |
+| <img src="docs/screenshots/order-status.jpg" alt="Order tracking page showing the ordered, paid, shipped and delivered steps"> | <img src="docs/screenshots/home-dark.jpg" alt="The same storefront home page in dark mode"> |
+| **Order tracking** — emailed as it moves | **Dark mode** — one toggle, everywhere |
 
 Every page is built mobile-first — the grid reflows, the nav collapses into a
 drawer, and the cart summary stacks under the items:

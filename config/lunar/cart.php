@@ -1,5 +1,6 @@
 <?php
 
+use App\Infrastructure\Lunar\Cart\CartLineTotalStock;
 use Lunar\Actions\Carts\AddAddress;
 use Lunar\Actions\Carts\AddOrUpdatePurchasable;
 use Lunar\Actions\Carts\CreateOrder;
@@ -22,7 +23,6 @@ use Lunar\Validation\Cart\ShippingOptionValidator;
 use Lunar\Validation\Cart\ValidateCartForOrderCreation;
 use Lunar\Validation\CartLine\CartLineAvailability;
 use Lunar\Validation\CartLine\CartLineQuantity;
-use Lunar\Validation\CartLine\CartLineStock;
 
 return [
     /*
@@ -112,13 +112,16 @@ return [
 
         'add_to_cart' => [
             CartLineQuantity::class,
-            CartLineStock::class,
+            // Ours, not Lunar's CartLineStock: that one checks the quantity
+            // being added rather than what the cart would end up holding, so
+            // two adds of two pass against three in stock. See the class.
+            CartLineTotalStock::class,
             CartLineAvailability::class,
         ],
 
         'update_cart_line' => [
             CartLineQuantity::class,
-            CartLineStock::class,
+            CartLineTotalStock::class,
             CartLineAvailability::class,
         ],
 
@@ -143,15 +146,20 @@ return [
     | that are used when it's running. Here you can define which relationships
     | should be eager loaded when these calculations take place.
     |
+    | NOTE: this list is variant-shaped - `taxClass`, `values` and `product`
+    | only exist on a product variant. A cart line can hold any purchasable,
+    | and this application also sells bundles (App\Models\ProductBundle),
+    | which have none of those relations: eager loading them here would throw
+    | `RelationNotFoundException` the moment a bundle is in the cart.
+    |
+    | Only what every purchasable has is listed here. The per-type loading is
+    | registered in App\Providers\AppServiceProvider, because expressing it
+    | needs a closure (`morphWith`) and a closure cannot survive
+    | `config:cache`.
     */
     'eager_load' => [
         'currency',
-        'lines.purchasable.taxClass',
-        'lines.purchasable.values',
-        'lines.purchasable.product.thumbnail',
         'lines.purchasable.prices.currency',
-        'lines.purchasable.prices.priceable',
-        'lines.purchasable.product',
         'lines.cart.currency',
     ],
 

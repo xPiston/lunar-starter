@@ -8,11 +8,12 @@ use App\Domain\Cart\Cart;
 use App\Domain\Cart\CartLine;
 use App\Domain\Shared\Money;
 use App\Infrastructure\Lunar\Support\MoneyMapper;
+use Lunar\Base\Purchasable;
 use Lunar\DataTypes\Price;
 use Lunar\Facades\StorefrontSession;
 use Lunar\Models\Cart as LunarCart;
 use Lunar\Models\CartLine as LunarCartLine;
-use Lunar\Models\ProductVariant as LunarProductVariant;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 final class CartMapper
 {
@@ -34,20 +35,43 @@ final class CartMapper
         );
     }
 
+    /**
+     * Reads the line through Lunar's `Purchasable` contract rather than
+     * assuming a product variant: a line can just as well hold one of this
+     * application's own bundles, and both answer these three questions.
+     */
     private function toLine(LunarCartLine $line): CartLine
     {
-        /** @var LunarProductVariant $variant */
-        $variant = $line->purchasable;
+        /** @var Purchasable $purchasable */
+        $purchasable = $line->purchasable;
 
         return new CartLine(
             id: $line->id,
-            productVariantId: $variant->id,
-            name: $variant->product->translateAttribute('name'),
-            thumbnailUrl: $this->nullIfEmpty($variant->product->getThumbnailImage()),
+            name: (string) $purchasable->getDescription(),
+            options: trim((string) $purchasable->getOption()),
+            thumbnailUrl: $this->nullIfEmpty($this->thumbnailFor($purchasable)),
             quantity: $line->quantity,
             unitPrice: $this->priceOrZero($line->unitPrice),
             lineTotal: $this->priceOrZero($line->total),
         );
+    }
+
+    /**
+     * Lunar's `Purchasable` contract documents this as returning a string,
+     * but its own ProductVariant returns a Media object. Both shapes are
+     * accepted, and the value is read as mixed precisely because the
+     * docblock cannot be trusted here.
+     */
+    private function thumbnailFor(Purchasable $purchasable): string
+    {
+        /** @var mixed $thumbnail */
+        $thumbnail = $purchasable->getThumbnail();
+
+        if ($thumbnail instanceof Media) {
+            return (string) $thumbnail->getUrl('small');
+        }
+
+        return (string) $thumbnail;
     }
 
     private function priceOrZero(?Price $price): Money
