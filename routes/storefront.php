@@ -12,6 +12,7 @@ use App\Http\Controllers\Storefront\GuestOrderLookupController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\NewsController;
 use App\Http\Controllers\Storefront\ProductController;
+use App\Http\Controllers\Storefront\ProductReviewController;
 use App\Http\Controllers\Storefront\SearchController;
 use App\Http\Controllers\Storefront\SitemapController;
 use App\Http\Seo\PageMeta;
@@ -95,6 +96,12 @@ Route::middleware('throttle:storefront-write')->group(function (): void {
     Route::delete('/cart/lines/{line}', [CartController::class, 'destroy'])->name('cart.lines.destroy');
     Route::post('/cart/coupon', [CartController::class, 'applyCoupon'])->name('cart.coupon.store');
     Route::delete('/cart/coupon', [CartController::class, 'removeCoupon'])->name('cart.coupon.destroy');
+
+    // Signed-in customers only - see ProductReviewController for why - and
+    // throttled like every other state-changing storefront route.
+    Route::post('/products/{slug}/reviews', [ProductReviewController::class, 'store'])
+        ->middleware('auth')
+        ->name('products.reviews.store');
 
     Route::post('/checkout/address', [CheckoutController::class, 'updateAddress'])->name('checkout.address');
     Route::post('/checkout/shipping-option', [CheckoutController::class, 'selectShipping'])->name('checkout.shipping-option');

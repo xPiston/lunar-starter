@@ -11,13 +11,17 @@ use App\Domain\Catalog\Port\ProductCatalog;
 use App\Domain\Checkout\Port\CheckoutGateway;
 use App\Domain\Content\Port\ContentPages;
 use App\Domain\Content\Port\HeroSlides;
+use App\Domain\Review\Port\ProductReviews;
+use App\Domain\Review\Port\PurchaseCheck;
 use App\Infrastructure\Eloquent\Content\EloquentContentPages;
 use App\Infrastructure\Eloquent\Content\EloquentHeroSlides;
+use App\Infrastructure\Eloquent\Review\EloquentProductReviews;
 use App\Infrastructure\Lunar\Account\LunarOrderHistory;
 use App\Infrastructure\Lunar\Cart\LunarCartGateway;
 use App\Infrastructure\Lunar\Cart\LunarCartReminders;
 use App\Infrastructure\Lunar\Catalog\LunarProductCatalog;
 use App\Infrastructure\Lunar\Checkout\LunarCheckoutGateway;
+use App\Infrastructure\Lunar\Review\LunarPurchaseCheck;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -44,5 +48,10 @@ final class DomainServiceProvider extends ServiceProvider
         // the application's own content, stored in its own tables.
         $this->app->bind(HeroSlides::class, EloquentHeroSlides::class);
         $this->app->bind(ContentPages::class, EloquentContentPages::class);
+        $this->app->bind(ProductReviews::class, EloquentProductReviews::class);
+
+        // The one context wired to both: reviews are ours, the purchase they
+        // claim to be based on is Lunar's.
+        $this->app->bind(PurchaseCheck::class, LunarPurchaseCheck::class);
     }
 }

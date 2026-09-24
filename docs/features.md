@@ -179,6 +179,39 @@ from a crawler alike.
   catalogue sliced differently, and crawlers would spend their budget
   enumerating them.
 
+### Product reviews
+
+Signed-in customers rate a product out of five and say why; nothing appears
+until a member of staff approves it at `/lunar/product-reviews`, where the
+navigation item carries the number still waiting.
+
+- **Moderation is enforced by the adapter**, through a scope every storefront
+  read goes through. A pending review is invisible on the page *and* absent
+  from the average — a controller cannot publish one by forgetting a
+  condition, which is what most of
+  `tests/Feature/Storefront/ProductReviewTest.php` checks.
+- Reviews are behind `auth`. A review carries a name and a "verified
+  purchase" badge, and neither means anything without an identity; an
+  anonymous form is a spam target needing moderation tooling this template
+  doesn't ship. One review per customer per product, enforced by a unique
+  index as well as by the use case.
+- The **verified purchase** badge is decided once, when the review is written,
+  by asking a second port: `PurchaseCheck`, implemented against Lunar's
+  orders. Reviews are the application's own table, purchases are Lunar's, and
+  the use case composes the two — a decision, not a join. Recomputing it later
+  would let a refunded order silently revoke a badge already shown.
+- Authors appear as "Marie D." — first name, last initial. Enough to read as a
+  person without publishing a customer's full name next to their opinions.
+  The domain object carries no email or user id at all.
+- `AggregateRating` joins the product's JSON-LD **only once there is a review**:
+  an aggregate with a count of zero is invalid structured data, and one bad
+  key invalidates the whole block — which would take the price and
+  availability snippet down with it. Null entries are now stripped from that
+  block for the same reason.
+- Ratings are on the product page, not yet on product cards in listings: that
+  needs an aggregate per row in the catalogue queries, and it is the obvious
+  next step rather than something silently missing.
+
 ### Coupon codes
 
 Discounts (percentage/fixed-amount off, buy-X-get-Y, product/collection/brand

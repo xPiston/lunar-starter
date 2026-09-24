@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Filament\Resources\ContentPageResource;
 use App\Filament\Resources\HeroSlideResource;
+use App\Filament\Resources\ProductReviewResource;
 use Filament\Panel;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -37,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
         LunarPanel::forceTwoFactorAuth()
             ->panel(fn (Panel $panel) => $panel
                 ->plugin(new ShippingPlugin)
-                ->resources([HeroSlideResource::class, ContentPageResource::class])
+                ->resources([HeroSlideResource::class, ContentPageResource::class, ProductReviewResource::class])
             )
             ->register();
     }

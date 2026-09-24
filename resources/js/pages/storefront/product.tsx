@@ -1,9 +1,11 @@
 import { ProductCard } from '@/components/storefront/product-card';
+import { ProductReviews } from '@/components/storefront/product-reviews';
+import { StarRating } from '@/components/storefront/star-rating';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import StorefrontLayout from '@/layouts/storefront-layout';
-import type { Product, ProductSummary, ProductVariant } from '@/types/storefront';
+import type { Product, ProductSummary, ProductVariant, RatingSummary, Review } from '@/types/storefront';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Minus, Plus, ShoppingCart } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
@@ -11,13 +13,16 @@ import { useState, type FormEvent } from 'react';
 interface ProductPageProps {
     product: Product;
     relatedProducts: ProductSummary[];
+    rating: RatingSummary;
+    reviews: Review[];
+    canReview: boolean;
 }
 
 // Below this, show "Only N left" instead of nothing - high enough to create
 // urgency, low enough to not fire on every normal restock level.
 const LOW_STOCK_THRESHOLD = 5;
 
-export default function ProductPage({ product, relatedProducts }: ProductPageProps) {
+export default function ProductPage({ product, relatedProducts, rating, reviews, canReview }: ProductPageProps) {
     const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(product.variants[0]);
     const gallery = product.images.length > 0 ? product.images : product.thumbnail_url ? [product.thumbnail_url] : [];
     const [activeImage, setActiveImage] = useState(gallery[0]);
@@ -82,6 +87,16 @@ export default function ProductPage({ product, relatedProducts }: ProductPagePro
 
                 <div>
                     <h1 className="text-2xl font-semibold">{product.name}</h1>
+
+                    {rating.count > 0 && (
+                        <a href="#reviews" className="mt-1 inline-flex items-center gap-2 text-sm">
+                            <StarRating value={rating.average} size="sm" />
+                            <span className="text-muted-foreground underline-offset-4 hover:underline">
+                                {rating.average.toFixed(1)} ({rating.count})
+                            </span>
+                        </a>
+                    )}
+
                     <p className="mt-2 text-2xl font-semibold">{selectedVariant?.price.formatted}</p>
 
                     {isOutOfStock ? (
@@ -163,6 +178,8 @@ export default function ProductPage({ product, relatedProducts }: ProductPagePro
                     </form>
                 </div>
             </div>
+
+            <ProductReviews productSlug={product.slug} rating={rating} reviews={reviews} canReview={canReview} />
 
             {relatedProducts.length > 0 && (
                 <section className="mt-16">

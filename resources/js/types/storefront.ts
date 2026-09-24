@@ -72,6 +72,22 @@ export interface SortOption {
     label: string;
 }
 
+export interface Review {
+    id: number;
+    rating: number;
+    body: string;
+    author_name: string;
+    verified_purchase: boolean;
+    published_at: string;
+}
+
+export interface RatingSummary {
+    average: number;
+    count: number;
+    // How many reviews gave each rating, keyed 1 to 5.
+    distribution: Record<number, number>;
+}
+
 export interface ContentPageSummary {
     id: number;
     type: 'page' | 'post';
