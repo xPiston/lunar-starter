@@ -70,6 +70,12 @@ Swap the engine later, or don't. Either way the decision stays yours.
 | <img src="docs/screenshots/order-status.jpg" alt="Order tracking page showing the ordered, paid, shipped and delivered steps"> | <img src="docs/screenshots/home-dark.jpg" alt="The same storefront home page in dark mode"> |
 | **Order tracking** — emailed as it moves | **Dark mode** — one toggle, everywhere |
 
+<img src="docs/screenshots/packs.jpg" alt="Product page offering packs of 1, 3 and 6, each card showing its total, the undiscounted total struck through and the resulting per-unit price" width="100%">
+
+**Quantity packs** — buy 3 or 6 and each one costs less. Every figure comes
+from the server, the saving is rounded down, and the button carries the total
+the cart will actually charge.
+
 Every page is built mobile-first — the grid reflows, the nav collapses into a
 drawer, and the cart summary stacks under the items:
 
