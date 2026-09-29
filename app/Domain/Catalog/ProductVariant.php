@@ -13,6 +13,9 @@ final readonly class ProductVariant
      *                                to a cart, or null when the product is unlimited/made-to-order (Lunar's
      *                                `purchasable = 'always'`, the default for a variant with no stock policy
      *                                configured).
+     * @param  PriceTier[]  $tiers  Quantity steps, cheapest unit last. Empty when
+     *                              the shop set no price break - most products - and the page then
+     *                              shows a plain quantity stepper.
      */
     public function __construct(
         public int $id,
@@ -20,6 +23,7 @@ final readonly class ProductVariant
         public string $optionSummary,
         public Money $price,
         public ?int $availableStock,
+        public array $tiers = [],
     ) {}
 
     /**
@@ -33,6 +37,10 @@ final readonly class ProductVariant
             'option_summary' => $this->optionSummary,
             'price' => $this->price->toArray(),
             'available_stock' => $this->availableStock,
+            'tiers' => array_map(
+                static fn (PriceTier $tier): array => $tier->toArray(),
+                $this->tiers,
+            ),
         ];
     }
 }

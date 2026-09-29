@@ -179,6 +179,53 @@ from a crawler alike.
   filtered or reordered listing is `noindex`: every combination is the same
   catalogue sliced differently, and crawlers would spend their budget
   enumerating them.
+- A collection's query selects `lunar_products.*` explicitly. Taking a
+  builder out of a belongs-to-many loses the select the relation would add
+  when it runs itself, and `select *` over the join lets the pivot table's
+  own `id` column overwrite the product's — every product then carries its
+  pivot row's id, and its url, thumbnail, variants and price are read for
+  whichever product has that id instead. It stayed invisible for a while
+  because a catalogue seeded in one pass has pivot ids matching product ids;
+  the first product added to an existing collection broke the coincidence and
+  lost its image. `ProductListingTest` attaches two products in the reverse of
+  their creation order to keep the two sets of ids apart.
+
+### Quantity pricing ("packs")
+
+The more you order, the less each one costs: the product page offers packs -
+1, 3, 5 - each showing what it comes to, what it would have cost at the
+single-unit price, and the resulting per-unit figure.
+
+**This is Lunar's own mechanism, exposed.** `lunar_prices.min_quantity` is a
+price break, managed on a product's Pricing tab in the admin, and Lunar's
+pricing manager already charges the right step when a cart line reaches that
+quantity:
+
+```
+qty 1 -> $24.99    qty 3 -> $22.49    qty 4 -> $22.49    qty 5 -> $19.99
+```
+
+Nothing here computes a discount; the template only puts the steps on the
+page. There is no admin work either - the screen already exists.
+
+- Both the unit price and the pack total come from the server, already
+  formatted. Working either out in the browser would mean rounding money in
+  JavaScript, which is how a price label ends up a cent off what the basket
+  charges.
+- The advertised percentage is **rounded down**: a step saving 9.6% says 9%,
+  never 10%. Overstating a discount by rounding is exactly the sort of small
+  lie a price label must not tell.
+- A product with no price break gets no pack chooser at all - just the
+  ordinary quantity stepper. Three cards each showing one unit would invent an
+  offer that does not exist.
+- A step applies from its quantity upwards: four units are charged at the
+  three-unit rate, which is what "3+" means.
+- `tests/Feature/Storefront/PriceTierTest.php` asserts the page and the cart
+  agree, because a card promising $67.47 that the basket then contradicts is
+  worse than no card at all.
+- Not included: a per-product noun for the unit. The cards say "3 units"
+  where a real shop would say "3 boxes" or "3 bottles", and Lunar has no
+  field for it - it needs a product attribute and a line in the mapper.
 
 ### Product bundles
 

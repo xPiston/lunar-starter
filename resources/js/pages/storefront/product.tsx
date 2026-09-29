@@ -1,3 +1,4 @@
+import { PackPicker } from '@/components/storefront/pack-picker';
 import { ProductCard } from '@/components/storefront/product-card';
 import { ProductReviews } from '@/components/storefront/product-reviews';
 import { StarRating } from '@/components/storefront/star-rating';
@@ -32,6 +33,10 @@ export default function ProductPage({ product, relatedProducts, rating, reviews,
         quantity: 1,
     });
 
+    const tiers = selectedVariant?.tiers ?? [];
+    // What the chosen quantity comes to, for the button. Only a tier knows
+    // it: below a price break, a quantity has no total of its own to show.
+    const selectedTotal = tiers.find((tier) => tier.quantity === data.quantity)?.total.formatted;
     const isOutOfStock = selectedVariant?.available_stock === 0;
     const maxQuantity = selectedVariant?.available_stock ?? undefined;
 
@@ -145,35 +150,45 @@ export default function ProductPage({ product, relatedProducts, rating, reviews,
                     )}
 
                     <form onSubmit={addToCart} className="mt-6">
-                        <Label>Quantity</Label>
-                        <div className="mt-2 flex items-center gap-4">
-                            <div className="border-input inline-flex items-center rounded-full border">
-                                <button
-                                    type="button"
-                                    onClick={() => changeQuantity(-1)}
-                                    disabled={isOutOfStock || data.quantity <= 1}
-                                    className="flex size-10 items-center justify-center disabled:opacity-40"
-                                    aria-label="Decrease quantity"
-                                >
-                                    <Minus className="size-4" />
-                                </button>
-                                <span className="w-8 text-center text-sm font-medium">{data.quantity}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => changeQuantity(1)}
-                                    disabled={isOutOfStock || (maxQuantity !== undefined && data.quantity >= maxQuantity)}
-                                    className="flex size-10 items-center justify-center disabled:opacity-40"
-                                    aria-label="Increase quantity"
-                                >
-                                    <Plus className="size-4" />
-                                </button>
-                            </div>
+                        {/* A pack chooser where the shop set price breaks, the
+                            plain stepper everywhere else: three cards each
+                            showing one unit would invent an offer. */}
+                        {tiers.length > 0 ? (
+                            <PackPicker tiers={tiers} value={data.quantity} onSelect={(quantity) => setData('quantity', quantity)} />
+                        ) : (
+                            <>
+                                <Label>Quantity</Label>
+                                <div className="border-input mt-2 inline-flex items-center rounded-full border">
+                                    <button
+                                        type="button"
+                                        onClick={() => changeQuantity(-1)}
+                                        disabled={isOutOfStock || data.quantity <= 1}
+                                        className="flex size-10 items-center justify-center disabled:opacity-40"
+                                        aria-label="Decrease quantity"
+                                    >
+                                        <Minus className="size-4" />
+                                    </button>
+                                    <span className="w-8 text-center text-sm font-medium">{data.quantity}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => changeQuantity(1)}
+                                        disabled={isOutOfStock || (maxQuantity !== undefined && data.quantity >= maxQuantity)}
+                                        className="flex size-10 items-center justify-center disabled:opacity-40"
+                                        aria-label="Increase quantity"
+                                    >
+                                        <Plus className="size-4" />
+                                    </button>
+                                </div>
+                            </>
+                        )}
 
-                            <Button type="submit" size="lg" className="flex-1" disabled={processing || !selectedVariant || isOutOfStock}>
-                                <ShoppingCart />
-                                {isOutOfStock ? 'Out of stock' : 'Add to cart'}
-                            </Button>
-                        </div>
+                        <Button type="submit" size="lg" className="mt-4 w-full" disabled={processing || !selectedVariant || isOutOfStock}>
+                            <ShoppingCart />
+                            {/* The total of what is actually being added, so the
+                                button agrees with the pack card above it. */}
+                            {isOutOfStock ? 'Out of stock' : selectedTotal ? `Add to cart · ${selectedTotal}` : 'Add to cart'}
+                        </Button>
+
                         {errors.quantity && <p className="text-destructive mt-2 text-sm">{errors.quantity}</p>}
                     </form>
                 </div>

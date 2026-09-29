@@ -140,6 +140,45 @@ final class ProductListingTest extends TestCase
     }
 
     /**
+     * A card must describe the product it is a card for.
+     *
+     * The listing takes its builder out of the collection's products
+     * relation, and a belongs-to-many only adds its `lunar_products.*` select
+     * when it runs itself. Without that select the query is `select *` over
+     * the join, so the pivot table's own `id` column overwrites the
+     * product's: every product comes back carrying its pivot row's id, and
+     * everything read from it afterwards - its url, its thumbnail, its
+     * variants and therefore its price - belongs to whichever product happens
+     * to have that id instead.
+     *
+     * Attaching the two products in the reverse of their creation order is
+     * all it takes to make the two sets of ids disagree, which is what any
+     * shop does the first time it adds a product to a collection that already
+     * has some. Nothing about the page looks broken when it happens: the
+     * names are right, because a name is a column on the product itself.
+     */
+    public function test_a_card_carries_its_own_product_s_link_and_price(): void
+    {
+        $slug = $this->collectionOf(count: 0);
+        $cheap = $this->createDemoProduct('Cheap', 1000);
+        $expensive = $this->createDemoProduct('Expensive', 9900);
+
+        $this->addToCollection($slug, $expensive);
+        $this->addToCollection($slug, $cheap);
+
+        $items = collect($this->get(route('collections.show', $slug))->viewData('page')['props']['listing']['items'])
+            ->keyBy('name');
+
+        foreach (['Cheap' => $cheap, 'Expensive' => $expensive] as $name => $product) {
+            $this->assertSame($product->id, $items[$name]['id']);
+            $this->assertSame((string) $product->defaultUrl->slug, $items[$name]['slug']);
+        }
+
+        $this->assertSame('$10.00', $items['Cheap']['price_from']['formatted']);
+        $this->assertSame('$99.00', $items['Expensive']['price_from']['formatted']);
+    }
+
+    /**
      * A page of a catalogue is worth indexing - it holds products nothing
      * else links to. Every combination of filters is the same catalogue
      * sliced differently, and letting a crawler enumerate them wastes its

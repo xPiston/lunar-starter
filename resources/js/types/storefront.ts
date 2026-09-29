@@ -18,6 +18,15 @@ export interface ProductSummary {
     default_variant_id: number;
 }
 
+export interface PriceTier {
+    quantity: number;
+    unit_price: Money;
+    // What `quantity` units cost at this step, and at the single-unit price.
+    total: Money;
+    undiscounted_total: Money;
+    percent_off: number;
+}
+
 export interface ProductVariant {
     id: number;
     sku: string;
@@ -25,6 +34,8 @@ export interface ProductVariant {
     price: Money;
     // null = unlimited/made-to-order (no stock policy configured).
     available_stock: number | null;
+    // Quantity steps. Empty unless the shop set a price break.
+    tiers: PriceTier[];
 }
 
 export interface Product {

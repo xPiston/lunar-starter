@@ -60,8 +60,17 @@ final class LunarProductCatalog implements ProductCatalog
         // The relation's underlying builder, already constrained to this
         // collection. Typed locally because Lunar resolves its models at
         // runtime, so the relation's generic is a bare Eloquent Model here.
+        //
+        // The explicit select is not cosmetic. Taking the builder out of the
+        // relation loses the `lunar_products.*` select a belongs-to-many adds
+        // when it runs itself, so the query becomes `select *` over the join
+        // and the pivot's own `id` column overwrites the product's. Every
+        // product then carries its pivot row's id, which silently poisons
+        // anything read afterwards - the thumbnail and url relations load for
+        // the wrong key, and a product whose pivot id happens not to match
+        // another product's id comes back with no image and a dead link.
         /** @var Builder<LunarProduct> $products */
-        $products = $collection->products()->getQuery();
+        $products = $collection->products()->getQuery()->select('lunar_products.*');
 
         return $this->paginate($products, $query);
     }

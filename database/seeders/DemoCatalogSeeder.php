@@ -82,6 +82,7 @@ final class DemoCatalogSeeder extends Seeder
                     optionValue: $variant['value'] === null
                         ? null
                         : $options[$item['option']]->values->firstWhere(fn (ProductOptionValue $value): bool => $value->translate('name') === $variant['value']),
+                    priceBreaks: $item['price_breaks'] ?? [],
                 );
             }
 
@@ -224,6 +225,28 @@ final class DemoCatalogSeeder extends Seeder
                     ['value' => null, 'price' => 7900, 'stock' => 0],
                 ],
             ],
+            [
+                'collection' => $accessories,
+                'name' => 'Camp Mug',
+                'photos' => ["{$cdn}/kitchen-accessories/black-aluminium-cup/1.webp", "{$cdn}/kitchen-accessories/black-aluminium-cup/2.webp"],
+                'option' => null,
+                'description' => <<<'HTML'
+                    <p>Powder-coated aluminium with a carabiner handle, so it clips to a pack and
+                    survives being dropped on a rock. Holds 350ml, which is a generous coffee or a
+                    reasonable soup.</p>
+                    <ul>
+                        <li>Powder-coated aluminium, 350ml</li>
+                        <li>Carabiner handle, clips to a strap</li>
+                        <li>Dishwasher safe, stackable</li>
+                    </ul>
+                    HTML,
+                // The one product with quantity pricing: people buy mugs for a
+                // table, not one at a time, which is what a price break is for.
+                'price_breaks' => [3 => 10, 6 => 20],
+                'variants' => [
+                    ['value' => null, 'price' => 1800, 'stock' => 40],
+                ],
+            ],
         ];
     }
 
@@ -263,6 +286,8 @@ final class DemoCatalogSeeder extends Seeder
         int $priceInCents,
         int $stock,
         ?ProductOptionValue $optionValue,
+        /** @var array<int, int> $priceBreaks quantity => percentage off */
+        array $priceBreaks = [],
     ): void {
         /** @var ProductVariant $variant */
         $variant = $product->variants()->create([
@@ -279,6 +304,17 @@ final class DemoCatalogSeeder extends Seeder
             'price' => $priceInCents,
             'min_quantity' => 1,
         ]);
+
+        // Quantity pricing, where the catalogue asks for it. `min_quantity` is
+        // Lunar's own price-break mechanism, managed on a product's Pricing tab
+        // in the admin - nothing here is a parallel discount system.
+        foreach ($priceBreaks as $quantity => $percentOff) {
+            $variant->prices()->create([
+                'currency_id' => $currency->id,
+                'price' => (int) round($priceInCents * (1 - $percentOff / 100)),
+                'min_quantity' => $quantity,
+            ]);
+        }
 
         if ($optionValue !== null) {
             $variant->values()->attach($optionValue->id);
