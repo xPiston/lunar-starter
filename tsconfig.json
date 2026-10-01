@@ -107,7 +107,10 @@
         /* Completeness */
         // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
         "skipLibCheck": true /* Skip type checking all .d.ts files. */,
-        "baseUrl": ".",
+        // Pas de "baseUrl" : TypeScript 7 la supprime, et elle ne servait a
+        // rien ici - les chemins ci-dessous sont deja relatifs au dossier de ce
+        // fichier, ce que "baseUrl": "." faisait. La resolution est inchangee,
+        // et le passage a TS 7 ne butera pas dessus.
         "paths": {
             "@/*": ["./resources/js/*"],
             "ziggy-js": ["./vendor/tightenco/ziggy"]
