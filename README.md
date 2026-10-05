@@ -49,6 +49,8 @@ Swap the engine later, or don't. Either way the decision stays yours.
   admin, nothing hardcoded
 - 🔁 Abandoned cart reminders with a signed recovery link and one-click
   unsubscribe
+- 🏭 **Optional ERP sync** — every paid order pushed to Odoo or Dolibarr,
+  customer included, off by default
 - 🎨 shadcn/ui interface with a light/dark toggle
 
 **Behind the scenes**
@@ -57,7 +59,7 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🚦 Rate limiting on every state-changing route
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
-- ✅ 160 feature tests against a real PostgreSQL — no mocked database
+- ✅ 180 tests against a real PostgreSQL — no mocked database
 
 | | |
 | :--: | :--: |
@@ -118,7 +120,7 @@ Three layers, one rule: **dependencies point inward.**
 ```
 app/Domain/          Value objects + ports.      No Laravel. No Lunar.
 app/Application/     Use cases.                  Speaks only to ports.
-app/Infrastructure/  Lunar adapters.             The only place Lunar exists.
+app/Infrastructure/  Lunar + ERP adapters.       The only place they exist.
 ```
 
 `DomainServiceProvider` wires each port to its adapter — one file, and it's
@@ -130,6 +132,55 @@ grep -rn "use Lunar\\\\" app/Domain app/Application   # returns nothing
 
 The pattern is applied across Catalog, Cart, Checkout and Account, so there's
 a worked example to copy from whichever context you extend next.
+
+## 🏭 Pushing orders to an ERP
+
+Optional, and off unless asked for. `ERP_DRIVER=none` — the default — binds a
+gateway that does nothing, so a shop without an ERP configures nothing and
+switches nothing off. Two adapters ship:
+
+| `ERP_DRIVER` | What it talks to |
+| --- | --- |
+| `none` | nothing, and that is the default |
+| `odoo` | Odoo over JSON-RPC (`res.partner`, `sale.order`) — verified on 18 |
+| `dolibarr` | Dolibarr over REST (`thirdparties`, `orders`) — verified on 24 |
+
+Odoo and Dolibarr because they are the two ERPs shops this size actually run,
+and because both can be stood up locally — the adapters were built against a
+real Odoo 18 and a real Dolibarr 24, not against their documentation:
+
+```sh
+docker compose -f docker-compose.erp.yml up -d odoo odoo-db        # :8069
+docker compose -f docker-compose.erp.yml up -d dolibarr dolibarr-db # :8081
+```
+
+**When a customer pays**, the order and its customer are pushed by a queued
+job. Queued because the money has already moved: an ERP mid-upgrade must not
+turn a successful payment into a 500 on the thank-you page. A failed push
+retries with a long backoff and then lands in `failed_jobs` with the order
+intact.
+
+**Pushing twice is safe.** Each adapter asks the ERP whether it already holds
+the shop's order reference — `client_order_ref` in Odoo, `ref_client` in
+Dolibarr — rather than keeping a local record. An ERP restored from a backup,
+or an order someone keyed in by hand, then still gives the right answer.
+
+**The lines add up to what was charged.** Shipping, discounts and tax are each
+carried as their own line, because the domain keeps only *products* in
+`$order->lines`. Skipping that is not hypothetical: the first version of both
+adapters recorded a 57.38 order as 52.48 in both ERPs, and `ErpOrderLines` plus
+its tests exist because of it.
+
+**Tax is a line, not a tax code.** Every line is pushed tax-free with the tax
+the shop charged alongside it, so the ERP total matches the payment processor
+to the cent. The trade-off, stated plainly: the ERP will not see that amount as
+tax, so it will not appear in its VAT reports. A shop that needs that should map
+its rates onto the ERP's tax codes in the adapter and accept that the two
+systems can then disagree.
+
+Adding a third ERP is one class: implement `App\Domain\Erp\Port\ErpGateway`,
+add a `match` arm in `DomainServiceProvider`. Nothing in `app/Domain` or
+`app/Application` moves.
 
 ## 📚 Documentation
 

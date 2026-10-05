@@ -1,0 +1,93 @@
+# Optional local ERPs for development - NOT part of the app's own stack
+# (docker-compose.yml / docker-compose.prod.yml). Spin one up to point
+# ERP_DRIVER at something real and watch a paid order land in it, instead of
+# trusting an adapter that has only ever talked to a mock.
+#
+# Both are here because the template ships an adapter for each. Run the one
+# you care about rather than both - Odoo alone wants about 2 GB of RAM:
+#
+#   docker compose -f docker-compose.erp.yml up -d odoo odoo-db
+#   docker compose -f docker-compose.erp.yml up -d dolibarr dolibarr-db
+#
+# Neither is sized for production. Self-host the real thing on its own
+# infrastructure; this file exists so the integration can be exercised end to
+# end on a laptop.
+
+services:
+  # --- Odoo -----------------------------------------------------------------
+  # First run: open http://localhost:8069, create the database (remember the
+  # name - it goes in ODOO_DATABASE, the API will not guess it), then
+  # Preferences > Account Security > New API Key for ODOO_API_KEY.
+  #
+  # The Sales app must be installed for sale.order to exist: Apps > Sales >
+  # Activate. Without it the adapter authenticates happily and then fails on
+  # the first order, which is a confusing way to find out.
+  odoo-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      # Odoo's entrypoint expects exactly these three names.
+      POSTGRES_DB: postgres
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      - erp-odoo-db:/var/lib/postgresql/data
+
+  odoo:
+    image: odoo:18
+    restart: unless-stopped
+    depends_on:
+      - odoo-db
+    ports:
+      - '8069:8069'
+    environment:
+      HOST: odoo-db
+      USER: odoo
+      PASSWORD: odoo
+    volumes:
+      - erp-odoo-data:/var/lib/odoo
+
+  # --- Dolibarr -------------------------------------------------------------
+  # Comes up already installed, with the admin account below. Enable the API:
+  # Home > Setup > Modules > Web Services (REST API), then Users > admin >
+  # API key tab for DOLIBARR_API_KEY.
+  #
+  # DOLI_INIT_DEMO is deliberately off: demo data invents third parties and
+  # orders, which makes it impossible to tell at a glance whether a row came
+  # from the shop or from the fixture.
+  dolibarr-db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: dolibarr
+      MARIADB_DATABASE: dolibarr
+      MARIADB_USER: dolibarr
+      MARIADB_PASSWORD: dolibarr
+    volumes:
+      - erp-dolibarr-db:/var/lib/mysql
+
+  dolibarr:
+    image: dolibarr/dolibarr:latest
+    restart: unless-stopped
+    depends_on:
+      - dolibarr-db
+    ports:
+      # 8081 rather than 8080: that port is taken on more machines than not.
+      - '8081:80'
+    environment:
+      DOLI_DB_HOST: dolibarr-db
+      DOLI_DB_NAME: dolibarr
+      DOLI_DB_USER: dolibarr
+      DOLI_DB_PASSWORD: dolibarr
+      DOLI_ADMIN_LOGIN: admin
+      DOLI_ADMIN_PASSWORD: dolibarr
+      DOLI_URL_ROOT: 'http://localhost:8081'
+      DOLI_INIT_DEMO: 'false'
+    volumes:
+      - erp-dolibarr-docs:/var/www/documents
+
+volumes:
+  erp-odoo-db:
+  erp-odoo-data:
+  erp-dolibarr-db:
+  erp-dolibarr-docs:

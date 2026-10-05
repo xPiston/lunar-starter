@@ -12,12 +12,18 @@ use App\Domain\Catalog\Port\ProductCatalog;
 use App\Domain\Checkout\Port\CheckoutGateway;
 use App\Domain\Content\Port\ContentPages;
 use App\Domain\Content\Port\HeroSlides;
+use App\Domain\Erp\Port\ErpGateway;
 use App\Domain\Review\Port\ProductReviews;
 use App\Domain\Review\Port\PurchaseCheck;
 use App\Infrastructure\Eloquent\Catalog\EloquentBundleCatalog;
 use App\Infrastructure\Eloquent\Content\EloquentContentPages;
 use App\Infrastructure\Eloquent\Content\EloquentHeroSlides;
 use App\Infrastructure\Eloquent\Review\EloquentProductReviews;
+use App\Infrastructure\Erp\Dolibarr\DolibarrClient;
+use App\Infrastructure\Erp\Dolibarr\DolibarrErpGateway;
+use App\Infrastructure\Erp\NullErpGateway;
+use App\Infrastructure\Erp\Odoo\OdooClient;
+use App\Infrastructure\Erp\Odoo\OdooErpGateway;
 use App\Infrastructure\Lunar\Account\LunarOrderHistory;
 use App\Infrastructure\Lunar\Cart\LunarCartGateway;
 use App\Infrastructure\Lunar\Cart\LunarCartReminders;
@@ -25,6 +31,7 @@ use App\Infrastructure\Lunar\Catalog\LunarProductCatalog;
 use App\Infrastructure\Lunar\Checkout\LunarCheckoutGateway;
 use App\Infrastructure\Lunar\Review\LunarPurchaseCheck;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 
 /**
  * COMPOSITION ROOT: wires each PORT (domain interface) to the ADAPTER that
@@ -60,5 +67,54 @@ final class DomainServiceProvider extends ServiceProvider
         // The one context wired to both: reviews are ours, the purchase they
         // claim to be based on is Lunar's.
         $this->app->bind(PurchaseCheck::class, LunarPurchaseCheck::class);
+
+        // The only port whose adapter is chosen at runtime rather than fixed
+        // here: which ERP a shop runs - or whether it runs one at all - is a
+        // deployment fact, not a code fact.
+        $this->app->bind(ErpGateway::class, $this->erpGateway(...));
+    }
+
+    /**
+     * Builds the ERP adapter named by `config('erp.driver')`.
+     *
+     * `none` is the default and binds a gateway that does nothing, which is
+     * what makes the whole feature optional without a single conditional
+     * anywhere else: callers push every paid order the same way, and a shop
+     * with no ERP has nothing to switch off.
+     *
+     * An unknown driver throws rather than falling back to `none`. Silently
+     * doing nothing because `ERP_DRIVER=oddo` is a typo is the kind of failure
+     * nobody notices until an accountant asks where three weeks of orders went.
+     */
+    private function erpGateway(): ErpGateway
+    {
+        /** @var array<string, mixed> $config */
+        $config = (array) config('erp');
+        $timeout = (int) ($config['timeout_seconds'] ?? 30);
+
+        return match ($driver = (string) ($config['driver'] ?? 'none')) {
+            'none' => new NullErpGateway,
+            'odoo' => new OdooErpGateway(
+                new OdooClient(
+                    url: (string) config('erp.odoo.url'),
+                    database: (string) config('erp.odoo.database'),
+                    username: (string) config('erp.odoo.username'),
+                    apiKey: (string) config('erp.odoo.api_key'),
+                    timeout: $timeout,
+                ),
+                confirmOrders: (bool) config('erp.odoo.confirm_orders'),
+            ),
+            'dolibarr' => new DolibarrErpGateway(
+                new DolibarrClient(
+                    url: (string) config('erp.dolibarr.url'),
+                    apiKey: (string) config('erp.dolibarr.api_key'),
+                    timeout: $timeout,
+                ),
+                validateOrders: (bool) config('erp.dolibarr.validate_orders'),
+            ),
+            default => throw new InvalidArgumentException(
+                "Unknown ERP driver [{$driver}]. Supported: none, odoo, dolibarr."
+            ),
+        };
     }
 }

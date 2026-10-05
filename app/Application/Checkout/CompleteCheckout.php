@@ -7,6 +7,7 @@ namespace App\Application\Checkout;
 use App\Domain\Checkout\CheckoutFailedException;
 use App\Domain\Checkout\Order;
 use App\Domain\Checkout\Port\CheckoutGateway;
+use App\Jobs\SyncOrderToErpJob;
 use App\Mail\OrderConfirmationMail;
 use Illuminate\Support\Facades\Mail;
 
@@ -28,6 +29,13 @@ final readonly class CompleteCheckout
         if ($order->billingAddress?->contactEmail) {
             Mail::to($order->billingAddress->contactEmail)->queue(new OrderConfirmationMail($order));
         }
+
+        // Unconditional, and queued for the same reason the mail is: the
+        // customer has paid, and nothing after that may make it look as if
+        // they had not. Whether an ERP is listening is decided once, in the
+        // composition root - a shop without one gets a gateway that does
+        // nothing, so there is no flag to read here.
+        SyncOrderToErpJob::dispatch($order);
 
         return $order;
     }
