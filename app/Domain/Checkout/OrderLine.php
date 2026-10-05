@@ -15,6 +15,16 @@ final readonly class OrderLine
         public int $quantity,
         public Money $unitPrice,
         public Money $lineTotal,
+        /**
+         * The variant's SKU, as it was at the time of the order.
+         *
+         * A line keeps its own copy of the name and the price precisely
+         * because the catalogue moves on; the reference is the same kind of
+         * fact. It is what an ERP matches a line against to find the product
+         * in its own stock, and nullable because Lunar does not force a
+         * variant to carry one.
+         */
+        public ?string $sku = null,
     ) {}
 
     /**
@@ -29,6 +39,7 @@ final readonly class OrderLine
             'quantity' => $this->quantity,
             'unit_price' => $this->unitPrice->toArray(),
             'line_total' => $this->lineTotal->toArray(),
+            'sku' => $this->sku,
         ];
     }
 }

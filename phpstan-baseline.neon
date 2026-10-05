@@ -149,8 +149,3 @@ parameters:
 			count: 1
 			path: app/Infrastructure/Lunar/Account/OrderSummaryMapper.php
 
-		-
-			message: '#^Access to an undefined property Lunar\\Models\\Contracts\\Currency\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Infrastructure/Lunar/Support/MoneyMapper.php

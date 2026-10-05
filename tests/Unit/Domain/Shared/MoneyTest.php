@@ -55,6 +55,43 @@ final class MoneyTest extends TestCase
             'minor_amount' => 2499,
             'currency_code' => 'USD',
             'formatted' => '$24.99',
+            'decimal_places' => 2,
         ], $money->toArray());
+    }
+
+    /**
+     * `toDecimal` is what every system outside the shop reads - an ERP, an
+     * accounting export, a carrier - so it is the one conversion that must not
+     * be approximate.
+     */
+    public function test_it_renders_minor_units_as_a_decimal_string(): void
+    {
+        self::assertSame('19.99', (new Money(1999, 'EUR', ''))->toDecimal());
+        self::assertSame('0.05', (new Money(5, 'EUR', ''))->toDecimal());
+        self::assertSame('0.00', (new Money(0, 'EUR', ''))->toDecimal());
+        self::assertSame('1000.00', (new Money(100000, 'EUR', ''))->toDecimal());
+    }
+
+    public function test_it_keeps_the_sign_of_a_negative_amount(): void
+    {
+        // Discount lines are sent to an ERP as negative amounts.
+        self::assertSame('-15.00', (new Money(-1500, 'EUR', ''))->toDecimal());
+        self::assertSame('-0.05', (new Money(-5, 'EUR', ''))->toDecimal());
+    }
+
+    public function test_it_follows_the_currency_rather_than_assuming_two_decimals(): void
+    {
+        // The yen has no minor unit at all: 1999 yen is 1999, not 19.99.
+        self::assertSame('1999', (new Money(1999, 'JPY', '', 0))->toDecimal());
+        // The Tunisian dinar has three.
+        self::assertSame('1.999', (new Money(1999, 'TND', '', 3))->toDecimal());
+    }
+
+    public function test_a_string_because_a_float_cannot_hold_19_99(): void
+    {
+        // The reason toDecimal returns a string: round-tripping money through
+        // a float is how totals end up a cent apart from what was charged.
+        self::assertSame('0.29', (new Money(29, 'EUR', ''))->toDecimal());
+        self::assertNotSame(0.29, (float) '0.1' + (float) '0.19');
     }
 }

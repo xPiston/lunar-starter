@@ -18,6 +18,16 @@ final readonly class Address
         public string $postcode,
         public ?string $contactEmail,
         public ?string $contactPhone,
+        /**
+         * The ISO 3166-1 alpha-2 code, next to `countryId`.
+         *
+         * `countryId` is a row id in Lunar's country table: it identifies a
+         * country only to this installation, and means nothing to anyone
+         * else. Anything outside the shop - an ERP, a carrier, a tax engine -
+         * works in codes, so the one place that can map between the two, the
+         * adapter that already read the row, resolves it once.
+         */
+        public ?string $countryIso = null,
     ) {}
 
     /**
@@ -37,6 +47,7 @@ final readonly class Address
             postcode: (string) ($data['postcode'] ?? ''),
             contactEmail: $data['contact_email'] ?? null,
             contactPhone: $data['contact_phone'] ?? null,
+            countryIso: $data['country_iso'] ?? null,
         );
     }
 
@@ -57,6 +68,7 @@ final readonly class Address
             'postcode' => $this->postcode,
             'contact_email' => $this->contactEmail,
             'contact_phone' => $this->contactPhone,
+            'country_iso' => $this->countryIso,
         ];
     }
 }

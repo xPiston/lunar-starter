@@ -18,10 +18,14 @@ final class MoneyMapper
 {
     public function fromLunarPrice(LunarPrice $price): Money
     {
+        /** @var Currency $currency */
+        $currency = $price->currency;
+
         return new Money(
             minorAmount: (int) $price->value,
-            currencyCode: $price->currency->code,
+            currencyCode: $currency->code,
             formatted: (string) $price->formatted(),
+            decimalPlaces: $currency->decimal_places,
         );
     }
 

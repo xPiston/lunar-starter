@@ -19,7 +19,39 @@ final readonly class Money
         public int $minorAmount,
         public string $currencyCode,
         public string $formatted,
+        /**
+         * How many of those minor units make a whole one.
+         *
+         * Two for most currencies, zero for the yen, three for the dinar.
+         * Carried rather than assumed because the moment an amount leaves the
+         * shop - to an ERP, an accounting export, a carrier - something has to
+         * turn 1999 into 19.99, and guessing is how 1999 euros get invoiced.
+         */
+        public int $decimalPlaces = 2,
     ) {}
+
+    /**
+     * The amount as a decimal string: 1999 minor units becomes "19.99".
+     *
+     * A string, not a float. This is the value that goes out to other systems,
+     * and a float cannot hold 19.99 exactly - round-tripping a few thousand
+     * order lines through one is how totals end up a cent apart from what the
+     * customer was charged.
+     */
+    public function toDecimal(): string
+    {
+        if ($this->decimalPlaces <= 0) {
+            return (string) $this->minorAmount;
+        }
+
+        $negative = $this->minorAmount < 0;
+        $digits = str_pad((string) abs($this->minorAmount), $this->decimalPlaces + 1, '0', STR_PAD_LEFT);
+
+        return ($negative ? '-' : '')
+            .substr($digits, 0, -$this->decimalPlaces)
+            .'.'
+            .substr($digits, -$this->decimalPlaces);
+    }
 
     public function equals(Money $other): bool
     {
@@ -28,7 +60,7 @@ final readonly class Money
     }
 
     /**
-     * @return array{minor_amount: int, currency_code: string, formatted: string}
+     * @return array{minor_amount: int, currency_code: string, formatted: string, decimal_places: int}
      */
     public function toArray(): array
     {
@@ -36,6 +68,7 @@ final readonly class Money
             'minor_amount' => $this->minorAmount,
             'currency_code' => $this->currencyCode,
             'formatted' => $this->formatted,
+            'decimal_places' => $this->decimalPlaces,
         ];
     }
 }

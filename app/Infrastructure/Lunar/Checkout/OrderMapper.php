@@ -56,6 +56,10 @@ final class OrderMapper
             quantity: $line->quantity,
             unitPrice: $this->money->fromLunarPrice($line->unit_price),
             lineTotal: $this->money->fromLunarPrice($line->total),
+            // Lunar copies the variant's SKU onto the line when the order is
+            // placed, so this is the reference as it was sold, not as the
+            // catalogue reads today.
+            sku: $this->nullIfEmpty((string) $line->identifier),
         );
     }
 

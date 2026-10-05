@@ -32,7 +32,20 @@ final class AddressMapper
             postcode: (string) $address->postcode,
             contactEmail: $address->contact_email,
             contactPhone: $address->contact_phone,
+            countryIso: $this->isoOf($address),
         );
+    }
+
+    /**
+     * Lunar types the relation against a contract that does not declare the
+     * column, so the concrete model is named here rather than silenced.
+     */
+    private function isoOf(LunarCartAddress|LunarOrderAddress $address): ?string
+    {
+        /** @var ?LunarCountry $country */
+        $country = $address->country;
+
+        return $country?->iso2;
     }
 
     public function countryToDomain(LunarCountry $country): Country
