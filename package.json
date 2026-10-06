@@ -52,7 +52,7 @@
         "embla-carousel-react": "^8.6.0",
         "globals": "^17.13.0",
         "laravel-vite-plugin": "^3.2.0",
-        "lucide-react": "^1.49.0",
+        "lucide-react": "^1.51.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "tailwind-merge": "^3.0.1",
