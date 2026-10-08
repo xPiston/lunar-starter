@@ -46,6 +46,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
+        $analytics = Tags::fromConfig();
 
         return array_merge(parent::share($request), [
             ...parent::share($request),
@@ -68,11 +69,15 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'status' => $request->session()->get('status'),
             ],
-            // Whether to mount the consent banner. Shared rather than read
-            // from the DOM because the front end cannot tell "no tag
-            // configured" from "tag configured, consent not required" by
-            // looking at the page - and a banner is wrong in both cases.
-            'analyticsConsentRequired' => Tags::fromConfig()->consentRequired(),
+            // Whether a Google tag is loaded at all, which is what the
+            // privacy policy's cookie section describes, and whether it is
+            // still waiting on consent, which is what mounts the banner.
+            // Shared rather than read from the DOM because the front end
+            // cannot tell "no tag configured" from "tag configured, already
+            // granted" by looking at the page - and both the banner and the
+            // cookie list are wrong in one of those cases.
+            'analyticsEnabled' => $analytics->enabled(),
+            'analyticsConsentRequired' => $analytics->consentRequired(),
             'navCollections' => fn (): array => $this->navCollections($request),
             'navContent' => fn (): array => $this->navContent($request),
             // Overridden per page by controllers that know better; shared

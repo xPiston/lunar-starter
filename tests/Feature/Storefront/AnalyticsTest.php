@@ -110,25 +110,31 @@ final class AnalyticsTest extends TestCase
     }
 
     /**
-     * The flag the consent banner is mounted on. A banner with nothing to ask
-     * is worse than none: it teaches people to dismiss the real ones.
+     * The two flags the front end reads: one mounts the consent banner, the
+     * other decides whether the privacy policy describes analytics cookies.
      *
-     * @return array<string, array{?string, bool, bool}>
+     * They are not the same question. A shop that collects without asking
+     * still sets those cookies and still has to say so - which is the case
+     * the third row covers, and the one a single flag would get wrong.
+     *
+     * @return array<string, array{?string, bool, bool, bool}>
      */
     public static function consentCases(): array
     {
         return [
-            'no tag at all' => [null, true, false],
-            'a tag waiting on consent' => ['GTM-ABC1234', true, true],
-            'a tag already granted everything' => ['GTM-ABC1234', false, false],
+            // container id, consent required, => enabled, banner
+            'no tag at all' => [null, true, false, false],
+            'a tag waiting on consent' => ['GTM-ABC1234', true, true, true],
+            'a tag already granted everything' => ['GTM-ABC1234', false, true, false],
         ];
     }
 
     #[DataProvider('consentCases')]
-    public function test_the_consent_banner_is_offered_only_when_there_is_a_choice(
+    public function test_the_front_end_is_told_what_is_loaded_and_what_is_still_being_asked(
         ?string $containerId,
         bool $requireConsent,
-        bool $expected,
+        bool $enabled,
+        bool $bannerExpected,
     ): void {
         config([
             'analytics.google_tag_manager_id' => $containerId,
@@ -138,7 +144,9 @@ final class AnalyticsTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->where('analyticsConsentRequired', $expected));
+            ->assertInertia(fn ($page) => $page
+                ->where('analyticsEnabled', $enabled)
+                ->where('analyticsConsentRequired', $bannerExpected));
     }
 
     /**

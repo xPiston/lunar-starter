@@ -1,8 +1,11 @@
 import { Card } from '@/components/ui/card';
 import StorefrontLayout from '@/layouts/storefront-layout';
-import { Head } from '@inertiajs/react';
+import type { SharedData } from '@/types';
+import { Head, usePage } from '@inertiajs/react';
 
 export default function PrivacyPage() {
+    const { analyticsEnabled, analyticsConsentRequired } = usePage<SharedData>().props;
+
     return (
         <StorefrontLayout>
             <Head title="Privacy Policy" />
@@ -51,10 +54,12 @@ export default function PrivacyPage() {
                             <li>Provide customer support if you contact us about an order.</li>
                             <li>Prevent fraud and abuse (for example, rate-limiting checkout attempts).</li>
                             <li>Comply with legal and tax obligations (e.g. keeping order records).</li>
+                            {analyticsEnabled ? (
+                                <li>Measure how the site is used, so we can improve it — see section 5 for what that involves.</li>
+                            ) : null}
                         </ul>
                         <p className="mt-2">
-                            [Add a section here if you also use this data for marketing emails, analytics, or advertising - and how customers can opt
-                            out.]
+                            [Add a line here if you also use this data for marketing emails or advertising - and how customers can opt out.]
                         </p>
                     </section>
 
@@ -76,13 +81,58 @@ export default function PrivacyPage() {
                     </section>
 
                     <section>
-                        <h2 className="mb-2 text-lg font-medium">5. Cookies</h2>
+                        <h2 className="mb-2 text-lg font-medium">5. Cookies and similar technologies</h2>
+
+                        <h3 className="mt-3 mb-1 font-medium">Strictly necessary</h3>
                         <p>
-                            By default, this site only sets strictly necessary cookies: a session cookie (to keep your cart working) and a CSRF
-                            security token. These don't require consent under most cookie laws, since the site can't function without them. [If you
-                            add analytics, marketing pixels, or A/B testing tools, list them here and add a consent mechanism before enabling them -
-                            this template doesn't include any by default.]
+                            Always set, because the site cannot work without them. These don't require your consent under most cookie laws, and they
+                            cannot be turned off.
                         </p>
+                        <ul className="mt-2 ml-5 list-disc space-y-1">
+                            <li>
+                                <strong>Session cookie</strong> — keeps your cart and, if you have one, your sign-in. It expires when your session
+                                ends.
+                            </li>
+                            <li>
+                                <strong>CSRF token</strong> (<code className="font-mono">XSRF-TOKEN</code>) — stops another site from acting in your
+                                name on this one.
+                            </li>
+                        </ul>
+
+                        {/* Only described where it is actually loaded: a cookie
+                            list naming cookies this deployment never sets is as
+                            wrong as one that omits cookies it does. */}
+                        {analyticsEnabled ? (
+                            <>
+                                <h3 className="mt-4 mb-1 font-medium">Measurement</h3>
+                                <p>
+                                    We use Google Analytics to count visits and understand which pages are used. It sets{' '}
+                                    <code className="font-mono">_ga</code> and <code className="font-mono">_ga_*</code>, which distinguish one visitor
+                                    and one visit from another and last up to two years by default. The data is processed by Google — see{' '}
+                                    <a href="https://policies.google.com/privacy" className="text-primary underline" target="_blank" rel="noreferrer">
+                                        Google's privacy policy
+                                    </a>
+                                    . [If your Tag Manager container also loads advertising or remarketing tags, name them here with what they store
+                                    and for how long — we cannot list them for you.]
+                                </p>
+
+                                {analyticsConsentRequired ? (
+                                    <>
+                                        <h3 className="mt-4 mb-1 font-medium">Your choice</h3>
+                                        <p>
+                                            Nothing above is written to your device before you accept. Measurement is refused by default, and the
+                                            banner records your answer. You can change it at any time with the <strong>Cookies</strong> link at the
+                                            bottom of any page; refusing keeps every part of the shop working.
+                                        </p>
+                                        <p className="mt-2">
+                                            Your answer itself is kept in your browser's local storage under{' '}
+                                            <code className="font-mono">analytics-consent</code>, not in a cookie — so it is never sent to our
+                                            servers. Clearing your browsing data clears it, and you will be asked again.
+                                        </p>
+                                    </>
+                                ) : null}
+                            </>
+                        ) : null}
                     </section>
 
                     <section>
