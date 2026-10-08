@@ -53,6 +53,10 @@ final class CartMapper
             quantity: $line->quantity,
             unitPrice: $this->priceOrZero($line->unitPrice),
             lineTotal: $this->priceOrZero($line->total),
+            // The contract's own words: "a unique string which identifies the
+            // purchasable item". A SKU for a variant, a slug for a bundle -
+            // and the very value Lunar writes to the order line later.
+            sku: $this->nullIfEmpty((string) $purchasable->getIdentifier()),
         );
     }
 

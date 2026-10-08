@@ -35,20 +35,19 @@ export function toAmount(money: Money): number {
 /**
  * One line of an ecommerce event.
  *
- * Items are identified by `item_name`, not by an id. GA4 accepts either, and
- * the choice here is forced: a cart line deliberately knows nothing about
- * what is on it — it may hold one variant or a whole bundle — so there is no
- * product reference to send from the cart or the order. Using the name
- * everywhere keeps one funnel joined, where identifying by sku on the product
- * page and by name afterwards would report a view and a purchase of the same
- * shirt as two unrelated products.
+ * `item_id` is the purchasable's own reference — a variant's SKU, a bundle's
+ * slug — and it is deliberately the *same* string at every stage. The product
+ * page reads it off the variant, the cart and the order read it off their
+ * line, and Lunar copies it from one to the other when the order is placed.
+ * That identity is the whole point: identify a shirt by sku when it is viewed
+ * and by name once it is in the basket, and GA4 reports a view and a purchase
+ * of two unrelated products.
  *
- * The cost, stated so nobody is surprised by it: two products sharing a name
- * are one row in the reports, and renaming a product starts a new row. Fixing
- * that means carrying a stable reference on `CartLine` and `OrderLine`, which
- * is a domain change, not an analytics one.
+ * `item_name` is sent alongside because reports are read by people, and
+ * because GA4 needs one of the two when a purchasable has no reference at all.
  */
 interface EcommerceItem {
+    item_id?: string;
     item_name: string;
     item_variant?: string;
     price: number;
@@ -57,6 +56,7 @@ interface EcommerceItem {
 
 function itemFromVariant(product: Product, variant: ProductVariant, quantity: number): EcommerceItem {
     return {
+        item_id: variant.sku || undefined,
         item_name: product.name,
         item_variant: variant.option_summary || undefined,
         price: toAmount(variant.price),
@@ -66,6 +66,7 @@ function itemFromVariant(product: Product, variant: ProductVariant, quantity: nu
 
 function itemFromLine(line: CartLine | OrderLine): EcommerceItem {
     return {
+        item_id: line.sku ?? undefined,
         item_name: line.name,
         // Order lines carry no options of their own; cart lines may.
         item_variant: 'options' in line && line.options ? line.options : undefined,

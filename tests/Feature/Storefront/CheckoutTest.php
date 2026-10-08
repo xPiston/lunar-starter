@@ -145,6 +145,45 @@ final class CheckoutTest extends TestCase
         }
     }
 
+    /**
+     * One product, one reference, from the basket to the sale.
+     *
+     * Anything following a product across those two steps - an analytics
+     * funnel, an ERP, a support question - joins on this string. Lunar copies
+     * it from the purchasable onto the order line when the order is placed,
+     * and this pins that the two really are the same value rather than two
+     * plausible ones.
+     */
+    public function test_a_line_keeps_the_same_reference_from_cart_to_order(): void
+    {
+        config(['lunar.stripe.allow_partial_payment' => true]);
+        config(['lunar.stripe.sync_addresses' => false]);
+        Stripe::fake();
+        Mail::fake();
+
+        $product = $this->createDemoProduct('T-shirt', 2499);
+        $sku = $this->firstVariant($product)->sku;
+
+        $this->post(route('cart.lines.store'), [
+            'product_variant_id' => $this->firstVariant($product)->id,
+            'quantity' => 2,
+        ]);
+
+        $this->get(route('cart.show'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('cart.lines.0.sku', $sku));
+
+        $this->postAddress();
+        $this->post(route('checkout.shipping-option'), ['identifier' => 'standard']);
+        $this->post(route('checkout.complete'), ['payment_intent' => 'PI_CAPTURE']);
+
+        $this->get(route('checkout.confirmation'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('order.lines.0.sku', $sku));
+
+        $this->assertNotSame('', (string) $sku, 'the fixture needs a sku for this to prove anything');
+    }
+
     private function addProductToCart(): void
     {
         $product = $this->createDemoProduct('T-shirt', 2499);

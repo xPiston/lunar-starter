@@ -25,6 +25,23 @@ final readonly class CartLine
         public int $quantity,
         public Money $unitPrice,
         public Money $lineTotal,
+        /**
+         * What is on the line, as a stable string.
+         *
+         * Still not a variant id - that is the point. It is the purchasable's
+         * own identifier: a variant's SKU, a bundle's slug, and whatever a
+         * future purchasable decides to answer. The line stays indifferent to
+         * which it got.
+         *
+         * It is the same value Lunar copies onto `order_lines.identifier`
+         * when the order is placed (see its CreateOrderLines pipeline), so a
+         * cart line and the order line it becomes carry the same reference -
+         * which is what lets anything downstream follow one product from the
+         * basket to the sale.
+         *
+         * Nullable because nothing forces a variant to carry a SKU.
+         */
+        public ?string $sku = null,
     ) {}
 
     /**
@@ -40,6 +57,7 @@ final readonly class CartLine
             'quantity' => $this->quantity,
             'unit_price' => $this->unitPrice->toArray(),
             'line_total' => $this->lineTotal->toArray(),
+            'sku' => $this->sku,
         ];
     }
 }

@@ -143,6 +143,9 @@ export interface ContentPage extends ContentPageSummary {
 
 export interface CartLine {
     id: number;
+    // The purchasable's own identifier: a variant's SKU, a bundle's slug.
+    // The same value the order line carries once the order is placed.
+    sku: string | null;
     name: string;
     // "M", or "1x Tee (S), 2x Socks" for a bundle.
     options: string;
@@ -210,6 +213,9 @@ export interface CheckoutSummary {
 
 export interface OrderLine {
     id: number;
+    // The reference as it was sold, copied onto the line when the order was
+    // placed - not as the catalogue reads today.
+    sku: string | null;
     name: string;
     thumbnail_url: string | null;
     quantity: number;

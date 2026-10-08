@@ -228,13 +228,14 @@ you cannot:
 - **A quantity change is a delta.** GA4 has no "quantity changed": going from
   3 to 1 is a removal of two, not of the whole line.
 
-Items are identified by `item_name`, not an id: a cart line deliberately knows
-nothing about what is on it — it may hold one variant or a whole bundle — so
-there is no product reference to send from the cart or the order, and using
-the name everywhere at least keeps one funnel joined. Two products sharing a
-name are one row in the reports, and renaming one starts a new row. Fixing
-that means carrying a stable reference on `CartLine` and `OrderLine`, which is
-a domain change, not an analytics one.
+Items are keyed on `item_id`, and it is the **same string at every stage**: the
+purchasable's own reference — a variant's SKU, a bundle's slug. The product
+page reads it off the variant, the cart and the order read it off their line,
+and Lunar copies it from one to the other when the order is placed. That
+identity is what makes the funnel a funnel; key a shirt by sku when it is
+viewed and by name once it is in the basket, and the report shows a view and a
+purchase of two unrelated products. Pinned by a test that follows one
+reference from `cart.lines.0.sku` to `order.lines.0.sku`.
 
 **A page view is reported per Inertia navigation, not per page load.** Both
 Google tags count a view when the document loads, which on this storefront
