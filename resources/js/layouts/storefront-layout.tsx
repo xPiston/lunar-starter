@@ -4,6 +4,7 @@ import { ThemeToggle } from '@/components/storefront/theme-toggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { reopenConsentBanner } from '@/lib/analytics';
 import type { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import { CheckCircle2, PackageSearch, Search, ShoppingCart } from 'lucide-react';
@@ -32,7 +33,7 @@ interface StorefrontLayoutProps {
  */
 export default function StorefrontLayout({ children }: StorefrontLayoutProps) {
     const { props, url } = usePage<SharedData>();
-    const { auth, cartItemCount, navContent, flash } = props;
+    const { auth, cartItemCount, navContent, flash, analyticsConsentRequired } = props;
     // Either key, one banner: the distinction between "it worked" and "here's
     // what happened" matters to the controller, not to the reader.
     const flashMessage = flash?.success ?? flash?.status;
@@ -200,6 +201,16 @@ export default function StorefrontLayout({ children }: StorefrontLayoutProps) {
                                     Privacy Policy
                                 </Link>
                             </li>
+                            {/* Only where there is a choice to revisit. Taking
+                                consent back has to be as easy as giving it,
+                                which a banner shown once is not. */}
+                            {analyticsConsentRequired && (
+                                <li>
+                                    <button type="button" onClick={reopenConsentBanner} className="hover:text-foreground">
+                                        Cookies
+                                    </button>
+                                </li>
+                            )}
                         </ul>
                     </div>
                 </div>

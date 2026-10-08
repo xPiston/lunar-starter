@@ -22,6 +22,28 @@
                 'security_storage': 'granted',
                 'wait_for_update': 500
             });
+
+            {{-- A previous visit's answer, re-applied before the tags load
+                 rather than after the React banner has mounted: a visitor who
+                 accepted last week should not spend the first second of every
+                 page refused. The key is the one in
+                 resources/js/lib/analytics.ts - change it in both places or
+                 in neither. --}}
+            try {
+                if (window.localStorage.getItem('analytics-consent') === 'granted') {
+                    gtag('consent', 'update', {
+                        'ad_storage': 'granted',
+                        'ad_user_data': 'granted',
+                        'ad_personalization': 'granted',
+                        'analytics_storage': 'granted',
+                        'functionality_storage': 'granted',
+                        'personalization_storage': 'granted'
+                    });
+                }
+            } catch (e) {
+                // Private browsing, blocked storage: no stored answer, so the
+                // defaults above stand and the banner asks again.
+            }
         </script>
     @endif
 

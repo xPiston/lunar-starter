@@ -109,6 +109,38 @@ final class AnalyticsTest extends TestCase
     }
 
     /**
+     * The flag the consent banner is mounted on. A banner with nothing to ask
+     * is worse than none: it teaches people to dismiss the real ones.
+     *
+     * @return array<string, array{?string, bool, bool}>
+     */
+    public static function consentCases(): array
+    {
+        return [
+            'no tag at all' => [null, true, false],
+            'a tag waiting on consent' => ['GTM-ABC1234', true, true],
+            'a tag already granted everything' => ['GTM-ABC1234', false, false],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('consentCases')]
+    public function test_the_consent_banner_is_offered_only_when_there_is_a_choice(
+        ?string $containerId,
+        bool $requireConsent,
+        bool $expected,
+    ): void {
+        config([
+            'analytics.google_tag_manager_id' => $containerId,
+            'analytics.google_analytics_id' => null,
+            'analytics.require_consent' => $requireConsent,
+        ]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('analyticsConsentRequired', $expected));
+    }
+
+    /**
      * @return array<string, array{string}>
      */
     public static function malformedIds(): array

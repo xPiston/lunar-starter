@@ -36,6 +36,9 @@ export interface SharedData {
     // Editorial content links, shared the same way: custom pages for the
     // footer, and whether any article exists to justify a News tab.
     navContent?: { pages: { title: string; slug: string }[]; has_news: boolean; has_bundles: boolean };
+    // Whether a Google tag is configured AND waiting on consent - the only
+    // case where a consent banner has anything to ask.
+    analyticsConsentRequired: boolean;
     [key: string]: unknown;
 }
 

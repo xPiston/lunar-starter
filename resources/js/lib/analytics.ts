@@ -56,15 +56,58 @@ export function trackPageView(url: string = window.location.href): void {
     });
 }
 
+export type ConsentChoice = 'granted' | 'denied';
+
 /**
- * Tell Google the visitor accepted. Call this from a consent banner.
+ * Where the visitor's answer is kept.
  *
- * Only has any effect when `ANALYTICS_REQUIRE_CONSENT` is on, since that is
- * what denies the storage types in the first place. With consent not required,
- * the tags were already granted everything and this is a no-op by design -
- * a banner that calls it either way stays correct.
+ * Also read by the inline script in resources/views/partials/
+ * analytics-head.blade.php, which re-applies it before the tags load. Change
+ * the key in both places or in neither.
+ *
+ * localStorage rather than a cookie on purpose: a cookie would be sent with
+ * every request, and the one thing a consent record must not do is need
+ * consent itself.
+ */
+const CONSENT_KEY = 'analytics-consent';
+
+/**
+ * The answer given on a previous visit, or null if there has not been one.
+ *
+ * Returns null rather than throwing where storage is unavailable - private
+ * browsing, blocked site data - which means the banner asks again. Asking
+ * twice is a nuisance; assuming an answer nobody gave is not.
+ */
+export function readConsentChoice(): ConsentChoice | null {
+    try {
+        const stored = window.localStorage.getItem(CONSENT_KEY);
+
+        return stored === 'granted' || stored === 'denied' ? stored : null;
+    } catch {
+        return null;
+    }
+}
+
+function storeConsentChoice(choice: ConsentChoice): void {
+    try {
+        window.localStorage.setItem(CONSENT_KEY, choice);
+    } catch {
+        // Nothing to do: the choice holds for this page, and the banner will
+        // ask again next time. Better than failing the click.
+    }
+}
+
+/**
+ * Tell Google the visitor accepted, and remember it.
+ *
+ * Only changes anything when `ANALYTICS_REQUIRE_CONSENT` is on, since that is
+ * what denies the storage types in the first place. With consent not required
+ * the tags were already granted everything, so this is a no-op by design and a
+ * banner that calls it either way stays correct.
  */
 export function grantAnalyticsConsent(): void {
+    storeConsentChoice('granted');
+
     window.gtag?.('consent', 'update', {
         ad_storage: 'granted',
         ad_user_data: 'granted',
@@ -79,6 +122,8 @@ export function grantAnalyticsConsent(): void {
  * The opposite, for the "refuse" button and for a visitor changing their mind.
  */
 export function denyAnalyticsConsent(): void {
+    storeConsentChoice('denied');
+
     window.gtag?.('consent', 'update', {
         ad_storage: 'denied',
         ad_user_data: 'denied',
@@ -87,6 +132,19 @@ export function denyAnalyticsConsent(): void {
         functionality_storage: 'denied',
         personalization_storage: 'denied',
     });
+}
+
+/**
+ * The event that reopens the banner, for the footer's "Cookies" link.
+ *
+ * Withdrawing consent has to be as easy as giving it, so the answer cannot be
+ * a one-time question. A custom event rather than shared React state because
+ * the banner lives outside the page tree - see resources/js/app.tsx.
+ */
+export const CONSENT_REOPEN_EVENT = 'analytics:reopen-consent';
+
+export function reopenConsentBanner(): void {
+    window.dispatchEvent(new Event(CONSENT_REOPEN_EVENT));
 }
 
 /**

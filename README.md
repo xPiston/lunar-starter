@@ -11,7 +11,7 @@ you can actually refactor.
 [![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Lunar](https://img.shields.io/badge/Lunar-1.5-1F2937)](https://lunarphp.io)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![Tests](https://img.shields.io/badge/tests-160%20passing-22C55E)](docs/development.md#tests)
+[![Tests](https://img.shields.io/badge/tests-194%20passing-22C55E)](docs/development.md#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 </div>
@@ -59,7 +59,7 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🚦 Rate limiting on every state-changing route
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
-- ✅ 180 tests against a real PostgreSQL — no mocked database
+- ✅ 194 tests against a real PostgreSQL — no mocked database
 
 | | |
 | :--: | :--: |
@@ -213,12 +213,26 @@ so that view is not counted twice.
 
 **Consent is denied before any tag loads**, for every storage type Google
 defines, because in the EU that is the condition under which these scripts may
-run at all — not a preference. The consequence is stated plainly: this template
-ships **no consent banner**, so consent is never granted and your reports stay
-cookieless until you build one and call `grantAnalyticsConsent()`.
-`ANALYTICS_REQUIRE_CONSENT=false` collects everything from the first byte; it
-is the configuration that produces complete reports and the one a French shop
-gets fined for. The choice is yours, and deliberately not the default.
+run at all — not a preference. `ANALYTICS_REQUIRE_CONSENT=false` loads them
+granted from the first byte; it is the configuration that produces complete
+reports and the one a French shop gets fined for. The choice is yours, and
+deliberately not the default.
+
+**The banner is only mounted when there is something to ask.** A tag
+configured *and* consent required — nothing else. A banner on a site that sets
+no analytics cookie either way is theatre, and the kind that teaches people to
+click "accept" without reading. Refusing is one click, exactly like accepting,
+which is not a design preference: a banner where "accept" is a button and
+"refuse" is three menus deep is the thing regulators actually fine. The answer
+is kept in `localStorage` rather than a cookie — the one record that must not
+itself need consent — and re-applied by the inline script *before* the tags
+load, so a visitor who accepted last week does not spend the first second of
+every page refused. A "Cookies" link in the storefront footer reopens it,
+because withdrawing has to be as easy as giving.
+
+What is **not** covered, and is yours to write: the cookie section of
+`/privacy` naming what each tag stores and for how long. The banner links to
+that page; it cannot write it for you.
 
 ## 📚 Documentation
 
@@ -239,8 +253,8 @@ Deliberately out of scope, so you know what you're picking up:
 - Refunds and fulfillment tracking, which live in the admin panel
 - Shipping-status emails (order confirmations and abandoned cart
   reminders are sent; "your order has shipped" isn't)
-- A cookie consent banner — the analytics tags ship with consent denied and a
-  `grantAnalyticsConsent()` to call, but the banner itself is yours to design
+- The cookie section of `/privacy` — the consent banner ships and links there,
+  but naming what each tag stores, and for how long, is yours to write
 - `/terms` and `/privacy` are structural placeholders, **not legal advice**
 
 Full detail in [Not included](docs/features.md#known-limitations).

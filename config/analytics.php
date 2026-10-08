@@ -48,10 +48,10 @@ return [
     | device until consent is given. In the EU that is not a preference, it is
     | the condition under which these scripts may run at all.
     |
-    | This template ships no consent banner, so with this on, consent is never
-    | granted and you will see only cookieless pings in your reports. Build a
-    | banner and call `grantAnalyticsConsent()` from
-    | resources/js/lib/analytics.ts when the visitor accepts.
+    | With this on, the consent banner is mounted and nothing is collected
+    | until the visitor accepts. With it off, no banner is shown at all - there
+    | would be nothing to ask, the tags having been granted everything before
+    | the page loaded.
     |
     | Setting this to false loads the tags with full consent from the first
     | byte. It is the configuration that produces complete reports and the one

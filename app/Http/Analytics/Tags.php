@@ -52,6 +52,19 @@ final readonly class Tags
         return $this->googleTagManagerId !== null || $this->googleAnalyticsId !== null;
     }
 
+    /**
+     * Whether the visitor has a choice worth being asked for.
+     *
+     * Both halves matter. No tag means nothing to consent to, and a banner
+     * that sets no cookie either way is theatre. Consent not required means
+     * the tags were granted everything before the page loaded, and asking
+     * afterwards would be a lie.
+     */
+    public function consentRequired(): bool
+    {
+        return $this->enabled() && $this->requireConsent;
+    }
+
     private static function validate(mixed $value, string $pattern): ?string
     {
         if (! is_string($value)) {

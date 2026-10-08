@@ -4,6 +4,7 @@ import { createInertiaApp, type ResolvedComponent } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
+import { CookieConsent } from './components/storefront/cookie-consent';
 import { initializeTheme } from './hooks/use-appearance';
 import { initializeAnalytics } from './lib/analytics';
 
@@ -26,7 +27,18 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        // The banner sits beside the page rather than inside a layout: it has
+        // to appear wherever the tags run, which is every page, and it has no
+        // business being re-mounted on each navigation. Being outside the
+        // page tree, it cannot call usePage() - the flag comes from the
+        // initial props, and it is configuration, so it cannot change between
+        // two pages anyway.
+        root.render(
+            <>
+                <App {...props} />
+                <CookieConsent required={props.initialPage.props.analyticsConsentRequired === true} />
+            </>,
+        );
     },
     progress: {
         color: '#4B5563',

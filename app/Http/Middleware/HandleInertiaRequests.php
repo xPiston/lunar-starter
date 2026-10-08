@@ -8,6 +8,7 @@ use App\Application\Content\ListPublishedContent;
 use App\Domain\Catalog\CollectionSummary;
 use App\Domain\Content\ContentPageSummary;
 use App\Domain\Content\ContentType;
+use App\Http\Analytics\Tags;
 use App\Http\Seo\PageMeta;
 use App\Models\ProductBundle;
 use Illuminate\Foundation\Inspiring;
@@ -67,6 +68,11 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'status' => $request->session()->get('status'),
             ],
+            // Whether to mount the consent banner. Shared rather than read
+            // from the DOM because the front end cannot tell "no tag
+            // configured" from "tag configured, consent not required" by
+            // looking at the page - and a banner is wrong in both cases.
+            'analyticsConsentRequired' => Tags::fromConfig()->consentRequired(),
             'navCollections' => fn (): array => $this->navCollections($request),
             'navContent' => fn (): array => $this->navContent($request),
             // Overridden per page by controllers that know better; shared
