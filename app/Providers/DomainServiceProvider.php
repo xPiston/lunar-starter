@@ -13,6 +13,7 @@ use App\Domain\Checkout\Port\CheckoutGateway;
 use App\Domain\Content\Port\ContentPages;
 use App\Domain\Content\Port\HeroSlides;
 use App\Domain\Erp\Port\ErpGateway;
+use App\Domain\Inventory\Port\StockLedger;
 use App\Domain\Review\Port\ProductReviews;
 use App\Domain\Review\Port\PurchaseCheck;
 use App\Infrastructure\Eloquent\Catalog\EloquentBundleCatalog;
@@ -29,6 +30,7 @@ use App\Infrastructure\Lunar\Cart\LunarCartGateway;
 use App\Infrastructure\Lunar\Cart\LunarCartReminders;
 use App\Infrastructure\Lunar\Catalog\LunarProductCatalog;
 use App\Infrastructure\Lunar\Checkout\LunarCheckoutGateway;
+use App\Infrastructure\Lunar\Inventory\LunarStockLedger;
 use App\Infrastructure\Lunar\Review\LunarPurchaseCheck;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
@@ -67,6 +69,11 @@ final class DomainServiceProvider extends ServiceProvider
         // The one context wired to both: reviews are ours, the purchase they
         // claim to be based on is Lunar's.
         $this->app->bind(PurchaseCheck::class, LunarPurchaseCheck::class);
+
+        // Lunar manages no inventory of its own: nothing in its core reduces
+        // the stock column when an order is placed. This binding is what
+        // makes "Only 2 left" mean anything after the second sale.
+        $this->app->bind(StockLedger::class, LunarStockLedger::class);
 
         // The only port whose adapter is chosen at runtime rather than fixed
         // here: which ERP a shop runs - or whether it runs one at all - is a

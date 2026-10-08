@@ -11,7 +11,7 @@ you can actually refactor.
 [![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Lunar](https://img.shields.io/badge/Lunar-1.5-1F2937)](https://lunarphp.io)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![Tests](https://img.shields.io/badge/tests-194%20passing-22C55E)](docs/development.md#tests)
+[![Tests](https://img.shields.io/badge/tests-200%20passing-22C55E)](docs/development.md#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 </div>
@@ -33,7 +33,8 @@ Swap the engine later, or don't. Either way the decision stays yours.
 
 - 🔎 Product catalog, collections and full-text search — paged,
   sortable and filterable
-- 🛒 Cart with live stock enforcement and coupon codes
+- 🛒 Cart with live stock enforcement and coupon codes — and a sale actually
+  takes its units off the shelf, which Lunar itself never does
 - 💳 Checkout: addresses, real shipping rates, tax, Stripe payment
 - 📦 Customer accounts with order history — plus guest order lookup by
   reference + email
@@ -59,7 +60,7 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🚦 Rate limiting on every state-changing route
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
-- ✅ 194 tests against a real PostgreSQL — no mocked database
+- ✅ 200 tests against a real PostgreSQL — no mocked database
 
 | | |
 | :--: | :--: |
@@ -285,6 +286,7 @@ Deliberately out of scope, so you know what you're picking up:
   USPS/UPS/DHL quotes aren't)
 - Saved address books — customers re-type their address each order
 - Refunds and fulfillment tracking, which live in the admin panel
+- Restocking: cancelling or refunding an order does not return its units
 - Shipping-status emails (order confirmations and abandoned cart
   reminders are sent; "your order has shipped" isn't)
 - The cookie section of `/privacy` — the consent banner ships and links there,

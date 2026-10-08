@@ -6,6 +6,7 @@ use App\Filament\Resources\ContentPageResource;
 use App\Filament\Resources\HeroSlideResource;
 use App\Filament\Resources\ProductBundleResource;
 use App\Filament\Resources\ProductReviewResource;
+use App\Infrastructure\Lunar\Checkout\OrderPlacedObserver;
 use App\Infrastructure\Lunar\Checkout\OrderStatusObserver;
 use App\Models\ProductBundle;
 use Filament\Panel;
@@ -67,6 +68,11 @@ class AppServiceProvider extends ServiceProvider
         // a webhook, not just one made in the admin panel. Registered on the
         // resolved model class because Lunar lets a project swap it.
         LunarOrder::observe(OrderStatusObserver::class);
+
+        // Lunar reduces no stock when an order is placed - see
+        // App\Infrastructure\Lunar\Inventory\LunarStockLedger for what that
+        // means and why this observer exists.
+        LunarOrder::observe(OrderPlacedObserver::class);
 
         // A cart or order line stores its purchasable as a morph. Without an
         // alias that column holds a fully-qualified class name, and renaming

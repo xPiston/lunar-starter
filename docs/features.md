@@ -111,6 +111,29 @@ states.
   normal Inertia form error. This also covers Lunar's other cart-line
   validators for free (quantity below minimum, quantity increment, product
   no longer purchasable) — same exception, same handling.
+- **Selling a unit takes it off the shelf.** Lunar manages no inventory of
+  its own: its core writes the `stock` column in exactly one file — the model
+  that declares it — and nothing anywhere reduces it when an order is placed.
+  Worse, the last check before the money is taken
+  (`ValidateCartForOrderCreation`) calls `isPurchasable()`, which looks at
+  whether the variant is trashed and its product published, and never at
+  stock. Left alone, a shop sells the same last item to every customer who
+  asks and the figure never moves.
+  `App\Infrastructure\Lunar\Inventory\LunarStockLedger` closes that, driven
+  by an observer on `placed_at` so an order placed from the admin panel, a
+  console command or an import counts the same as one paid for on the
+  storefront. The decrement is a single atomic statement, `purchasable =
+  'always'` is left alone, a bundle counts down each variant it contains, and
+  one row per order in `order_stock_commitments` makes taking stock twice for
+  one order impossible. Covered by
+  `tests/Feature/Storefront/StockCommitmentTest.php`.
+- **Stock may go negative, on purpose.** By the time the ledger runs the
+  customer has paid. A figure below zero is the record of an oversell that
+  already happened; refusing to write it would not put the item back in the
+  warehouse, and it is the only signal staff would get.
+- **Nothing restocks.** Cancelling or refunding an order in the admin panel
+  does not put its units back — `order_stock_commitments` records which orders
+  were destocked precisely so that can be built, but it is not built.
 - A real store manages stock counts at `/lunar/products/{id}` like any other
   product field; nothing about how it's read changes.
 
@@ -453,6 +476,8 @@ Set `APP_NAME`, `SEO_DESCRIPTION` and `SEO_IMAGE` (an absolute URL to a
   so the shipped-status email says an order has left, not where it is. It
   needs a column of the application's own and somewhere in the admin to type
   it — see [Order status notifications](#order-status-notifications).
+- No restocking: an order cancelled or refunded in the admin panel does not
+  return its units to stock. See [Stock management](#stock-management).
 - One reminder per abandoned cart, not a sequence. A second and third email
   on a delay is the usual next step, and the schedule + `cart_reminders`
   table are where it would go.
