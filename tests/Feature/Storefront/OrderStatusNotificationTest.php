@@ -12,6 +12,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Lunar\Models\Country;
 use Lunar\Models\Order;
 use Lunar\Stripe\Facades\Stripe;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\SeedsLunarStorefront;
 use Tests\TestCase;
 
@@ -47,6 +48,63 @@ final class OrderStatusNotificationTest extends TestCase
                 && $mail->change->reference === $order->reference
                 && $mail->change->status->handle === 'dispatched'
         );
+    }
+
+    /**
+     * The two ends an order can come to.
+     *
+     * Both were configured from the day order notifications were written, and
+     * neither could ever fire: Lunar's own status list stops at `dispatched`,
+     * so no one could set them. This pins the wiring now that the statuses
+     * exist, rather than trusting that a config entry and a status handle
+     * still agree.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function closingStatuses(): array
+    {
+        return [
+            'cancelled' => ['cancelled', 'Your order has been cancelled'],
+            'refunded' => ['refunded', 'Your refund is on its way'],
+        ];
+    }
+
+    #[DataProvider('closingStatuses')]
+    public function test_a_customer_is_told_when_their_order_ends(string $status, string $subject): void
+    {
+        $order = $this->placeOrder();
+
+        $order->update(['status' => $status]);
+
+        Mail::assertQueued(
+            OrderStatusUpdatedMail::class,
+            fn (OrderStatusUpdatedMail $mail): bool => $mail->hasTo('ada@example.com')
+                && $mail->change->reference === $order->reference
+                && $mail->change->status->handle === $status
+                // The reference is appended to every subject, so the shop
+                // can tell two of these apart in a mailbox.
+                && $mail->envelope()->subject === $subject.' - '.$order->reference
+        );
+    }
+
+    /**
+     * A cancelled order has not reached step 2 of 3 - it left the path. The
+     * progress bar must say so rather than freeze halfway.
+     */
+    public function test_a_cancelled_order_is_not_shown_as_part_way_through(): void
+    {
+        $user = User::factory()->create();
+        $order = $this->placeOrder($user);
+
+        $order->update(['status' => 'cancelled']);
+
+        $this->actingAs($user)
+            ->get(route('account.orders.show', $order->reference))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('order.status.handle', 'cancelled')
+                ->where('order.status.label', 'Cancelled')
+            );
     }
 
     /**

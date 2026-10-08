@@ -147,7 +147,13 @@ states.
 - **`delivered`, `cancelled` and `refunded` were added to
   `config/lunar/orders.php`.** Lunar's own list stops at `dispatched`, which
   meant `config/order_notifications.php` had been promising emails for
-  statuses the admin panel offered no way of setting.
+  statuses the admin panel offered no way of setting. Those two emails work
+  as soon as the statuses exist — no code was needed, only the handles — and
+  `tests/Feature/Storefront/OrderStatusNotificationTest.php` now covers both.
+- **Cancelling does not refund.** It restocks and it emails; moving the money
+  back is done in Stripe or the admin panel by whoever decided to cancel. The
+  wording of the email is hedged accordingly ("any payment taken"), because a
+  cancelled order may never have been paid for.
 - A real store manages stock counts at `/lunar/products/{id}` like any other
   product field; nothing about how it's read changes.
 
