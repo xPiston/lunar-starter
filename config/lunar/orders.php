@@ -99,6 +99,38 @@ return [
             'favourite' => true,
         ],
 
+        /*
+        | The three below are additions to Lunar's own list, which stops at
+        | `dispatched`. Without them, config/order_notifications.php promises
+        | emails for statuses the panel offers no way of setting, and
+        | config/inventory.php waits for a cancellation that can never
+        | arrive.
+        */
+
+        'delivered' => [
+            'label' => 'Delivered',
+            'color' => '#1a9c6e',
+            'mailers' => [],
+            'notifications' => [],
+            'favourite' => true,
+        ],
+
+        'cancelled' => [
+            'label' => 'Cancelled',
+            'color' => '#b91c1c',
+            'mailers' => [],
+            'notifications' => [],
+            'favourite' => false,
+        ],
+
+        'refunded' => [
+            'label' => 'Refunded',
+            'color' => '#b45309',
+            'mailers' => [],
+            'notifications' => [],
+            'favourite' => false,
+        ],
+
     ],
 
     /*

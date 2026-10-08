@@ -28,33 +28,77 @@ final readonly class LunarStockLedger implements StockLedger
 {
     public function commitOrder(int $orderId): void
     {
+        $this->move($orderId, committing: true);
+    }
+
+    public function releaseOrder(int $orderId): void
+    {
+        $this->move($orderId, committing: false);
+    }
+
+    /**
+     * Shelf in one direction or the other, once.
+     *
+     * The write that changes the commitment row is also what claims the
+     * right to move the stock: both are conditional on the state the caller
+     * believes it is in, so two processes cancelling the same order at the
+     * same moment cannot both give the units back. A row read followed by a
+     * decision would let them.
+     */
+    private function move(int $orderId, bool $committing): void
+    {
         $order = LunarOrder::with('lines')->find($orderId);
 
         if (! $order) {
             return;
         }
 
-        DB::transaction(function () use ($order): void {
-            // The insert is the lock. Two processes placing the same order at
-            // once both reach here; the second one collides on the primary key
-            // and stops, which is cheaper and more honest than a flag read
-            // before a write.
-            $claimed = DB::table('order_stock_commitments')->insertOrIgnore([
-                'order_id' => $order->id,
-                'committed_at' => now(),
-            ]);
-
-            if ($claimed === 0) {
+        DB::transaction(function () use ($order, $committing): void {
+            if (! $this->claim((int) $order->id, $committing)) {
                 return;
             }
 
             /** @var OrderLine $line */
             foreach ($order->lines as $line) {
                 foreach ($this->unitsFor($line) as $variantId => $quantity) {
-                    $this->reduce($variantId, $quantity);
+                    $this->shift($variantId, $committing ? -$quantity : $quantity);
                 }
             }
         });
+    }
+
+    /**
+     * Whether this call is the one that gets to move the stock.
+     *
+     * Committing has two ways in: an order never seen before, and one whose
+     * units were given back and are being taken again. Releasing has one, and
+     * only from a commitment that is still standing.
+     */
+    private function claim(int $orderId, bool $committing): bool
+    {
+        $commitments = DB::table('order_stock_commitments');
+
+        if (! $committing) {
+            return (clone $commitments)
+                ->where('order_id', $orderId)
+                ->whereNull('released_at')
+                ->update(['released_at' => now()]) === 1;
+        }
+
+        $inserted = (clone $commitments)->insertOrIgnore([
+            'order_id' => $orderId,
+            'committed_at' => now(),
+            'released_at' => null,
+        ]);
+
+        if ($inserted === 1) {
+            return true;
+        }
+
+        return (clone $commitments)
+            ->where('order_id', $orderId)
+            ->whereNotNull('released_at')
+            ->update(['committed_at' => now(), 'released_at' => null]) === 1;
     }
 
     /**
@@ -93,15 +137,21 @@ final readonly class LunarStockLedger implements StockLedger
      * A single atomic statement, not a read followed by a write: two orders
      * for the last unit must each take one, even when they land at the same
      * moment.
+     *
+     * `$by` is negative when selling and positive when giving back.
      */
-    private function reduce(int $variantId, int $quantity): void
+    private function shift(int $variantId, int $by): void
     {
-        ProductVariant::query()
+        $query = ProductVariant::query()
             ->whereKey($variantId)
             // `always` is Lunar's own way of saying this product never runs
             // out - a download, a made-to-order piece. Counting it down would
-            // put a number on something that has none.
-            ->where('purchasable', '!=', 'always')
-            ->decrement('stock', $quantity);
+            // put a number on something that has none, and counting it back
+            // up would invent one.
+            ->where('purchasable', '!=', 'always');
+
+        $by < 0
+            ? $query->decrement('stock', -$by)
+            : $query->increment('stock', $by);
     }
 }

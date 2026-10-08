@@ -85,11 +85,89 @@ final class StockCommitmentTest extends TestCase
         $this->assertSame(8, $variant->refresh()->stock);
 
         // What the admin panel does on any edit.
-        $order = Order::whereNotNull('placed_at')->firstOrFail();
+        $order = $this->placedOrder();
         $order->touch();
         $order->update(['notes' => 'Called the customer']);
 
         $this->assertSame(8, $variant->refresh()->stock);
+    }
+
+    public function test_cancelling_an_order_puts_its_units_back(): void
+    {
+        $product = $this->createDemoProduct('T-shirt', 2499, stock: 10);
+        $variant = $this->firstVariant($product);
+
+        $this->buy($variant->id, quantity: 4);
+        $this->assertSame(6, $variant->refresh()->stock);
+
+        $this->placedOrder()->update(['status' => 'cancelled']);
+
+        $this->assertSame(10, $variant->refresh()->stock);
+    }
+
+    public function test_the_units_are_given_back_once_however_often_the_order_is_saved(): void
+    {
+        $product = $this->createDemoProduct('T-shirt', 2499, stock: 10);
+        $variant = $this->firstVariant($product);
+
+        $this->buy($variant->id, quantity: 4);
+        $this->placedOrder()->update(['status' => 'cancelled']);
+        $this->assertSame(10, $variant->refresh()->stock);
+
+        // Staff editing a cancelled order, and cancelling an already
+        // cancelled one. Neither is a second cancellation.
+        $this->placedOrder()->update(['notes' => 'Customer called to confirm']);
+        $this->placedOrder()->update(['status' => 'cancelled']);
+
+        $this->assertSame(10, $variant->refresh()->stock);
+    }
+
+    public function test_un_cancelling_an_order_takes_the_units_again(): void
+    {
+        $product = $this->createDemoProduct('T-shirt', 2499, stock: 10);
+        $variant = $this->firstVariant($product);
+
+        $this->buy($variant->id, quantity: 4);
+
+        // Cancelled by mistake, then put back. The shelf has to follow both
+        // ways or it drifts upwards every time somebody misclicks.
+        $this->placedOrder()->update(['status' => 'cancelled']);
+        $this->assertSame(10, $variant->refresh()->stock);
+
+        $this->placedOrder()->update(['status' => 'payment-received']);
+        $this->assertSame(6, $variant->refresh()->stock);
+    }
+
+    public function test_a_status_that_is_not_a_cancellation_leaves_the_shelf_alone(): void
+    {
+        $product = $this->createDemoProduct('T-shirt', 2499, stock: 10);
+        $variant = $this->firstVariant($product);
+
+        $this->buy($variant->id, quantity: 4);
+
+        foreach (['dispatched', 'delivered'] as $status) {
+            $this->placedOrder()->update(['status' => $status]);
+            $this->assertSame(6, $variant->refresh()->stock, "{$status} must not move the shelf");
+        }
+    }
+
+    public function test_an_order_that_never_took_anything_gives_nothing_back(): void
+    {
+        $product = $this->createDemoProduct('Gift card', 2499, stock: 5);
+        $variant = $this->firstVariant($product);
+        $variant->update(['purchasable' => 'always']);
+
+        $this->buy($variant->id, quantity: 3);
+        $this->assertSame(5, $variant->refresh()->stock);
+
+        $this->placedOrder()->update(['status' => 'cancelled']);
+
+        $this->assertSame(5, $variant->refresh()->stock);
+    }
+
+    private function placedOrder(): Order
+    {
+        return Order::whereNotNull('placed_at')->firstOrFail();
     }
 
     private function buy(int $variantId, int $quantity, bool $expectRefusal = false): void

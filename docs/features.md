@@ -131,9 +131,23 @@ states.
   customer has paid. A figure below zero is the record of an oversell that
   already happened; refusing to write it would not put the item back in the
   warehouse, and it is the only signal staff would get.
-- **Nothing restocks.** Cancelling or refunding an order in the admin panel
-  does not put its units back — `order_stock_commitments` records which orders
-  were destocked precisely so that can be built, but it is not built.
+- **Cancelling puts the units back, and un-cancelling takes them again.** The
+  statuses that restock are an allow-list in `config/inventory.php`,
+  defaulting to `cancelled` and `refunded`: a slug is not a decision, and a
+  shop's own `fraud-check` status must not empty its warehouse. Both
+  directions matter — an order cancelled by mistake and put back is a thing
+  that happens, and a shelf that only moves one way drifts upwards on every
+  misclick.
+- **The commitment row is the lock, both ways.** The write that flips
+  `order_stock_commitments.released_at` is conditional on the state the caller
+  believes it is in, so two staff cancelling the same order at the same moment
+  cannot both give the units back. An order the ledger never committed — one
+  placed before any of this existed, or holding only products that never run
+  out — gives nothing back.
+- **`delivered`, `cancelled` and `refunded` were added to
+  `config/lunar/orders.php`.** Lunar's own list stops at `dispatched`, which
+  meant `config/order_notifications.php` had been promising emails for
+  statuses the admin panel offered no way of setting.
 - A real store manages stock counts at `/lunar/products/{id}` like any other
   product field; nothing about how it's read changes.
 
