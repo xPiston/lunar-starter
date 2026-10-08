@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Storefront;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -123,7 +124,7 @@ final class AnalyticsTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('consentCases')]
+    #[DataProvider('consentCases')]
     public function test_the_consent_banner_is_offered_only_when_there_is_a_choice(
         ?string $containerId,
         bool $requireConsent,
@@ -154,7 +155,7 @@ final class AnalyticsTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('malformedIds')]
+    #[DataProvider('malformedIds')]
     public function test_an_id_that_is_not_an_id_never_reaches_a_script(string $id): void
     {
         config(['analytics.google_tag_manager_id' => $id, 'analytics.google_analytics_id' => $id]);
