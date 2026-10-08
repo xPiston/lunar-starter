@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import StorefrontLayout from '@/layouts/storefront-layout';
+import { trackQuantityChange, trackRemoveFromCart, trackViewCart } from '@/lib/ecommerce';
 import type { Cart, CartLine } from '@/types/storefront';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { type FormEvent } from 'react';
+import { useEffect, type FormEvent } from 'react';
 
 interface CartPageProps {
     cart: Cart;
@@ -14,11 +15,21 @@ function updateQuantity(line: CartLine, quantity: number) {
     if (quantity < 1) {
         return;
     }
-    router.patch(route('cart.lines.update', line.id), { quantity }, { preserveScroll: true });
+    router.patch(
+        route('cart.lines.update', line.id),
+        { quantity },
+        // Reported on success only: the server refuses a quantity above what
+        // is in stock, and a basket that analytics believes is bigger than
+        // the one the customer has is worse than no number at all.
+        { preserveScroll: true, onSuccess: () => trackQuantityChange(line, line.quantity, quantity) },
+    );
 }
 
 function removeLine(line: CartLine) {
-    router.delete(route('cart.lines.destroy', line.id), { preserveScroll: true });
+    router.delete(route('cart.lines.destroy', line.id), {
+        preserveScroll: true,
+        onSuccess: () => trackRemoveFromCart(line),
+    });
 }
 
 function removeCoupon() {
@@ -111,6 +122,16 @@ export default function CartPage({ cart }: CartPageProps) {
     // the whole update, so there's no per-line error to attach this to
     // beyond re-fetching the cart (already done by the redirect back).
     const errors = (usePage().props.errors ?? {}) as Partial<Record<string, string>>;
+
+    // Once per arrival, not on every re-render the quantity buttons cause:
+    // the dependency is the cart id, which does not change while you are
+    // editing the cart you are looking at.
+    useEffect(() => {
+        if (cart.lines.length > 0) {
+            trackViewCart(cart);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cart.id]);
 
     return (
         <StorefrontLayout>

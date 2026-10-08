@@ -56,6 +56,26 @@ export function trackPageView(url: string = window.location.href): void {
     });
 }
 
+/**
+ * Report one GA4 ecommerce event, in the shape each consumer expects.
+ *
+ * The two shapes differ. Tag Manager reads an `ecommerce` object off a named
+ * dataLayer event; gtag takes the same parameters flat. Sending one shape to
+ * both silently reports nothing to the other.
+ *
+ * The `ecommerce: null` push is not decoration. Tag Manager merges each push
+ * into the dataLayer rather than replacing it, so without it a `purchase`
+ * inherits the `items` of whatever ecommerce event came before — Google's own
+ * documentation says to clear it, and the symptom when you don't is orders
+ * containing products nobody bought.
+ */
+export function trackEcommerceEvent(name: string, params: Record<string, unknown>): void {
+    window.dataLayer?.push({ ecommerce: null });
+    window.dataLayer?.push({ event: name, ecommerce: params });
+
+    window.gtag?.('event', name, params);
+}
+
 export type ConsentChoice = 'granted' | 'denied';
 
 /**

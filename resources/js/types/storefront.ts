@@ -7,6 +7,10 @@ export interface Money {
     minor_amount: number;
     currency_code: string;
     formatted: string;
+    // How many minor units make a whole one: two for most currencies, zero
+    // for the yen. Carried rather than assumed - dividing by 100 is how 1999
+    // yen becomes 19.99 in a report.
+    decimal_places: number;
 }
 
 export interface ProductSummary {

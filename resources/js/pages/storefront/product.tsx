@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import StorefrontLayout from '@/layouts/storefront-layout';
+import { trackAddToCart, trackViewItem } from '@/lib/ecommerce';
 import type { Product, ProductSummary, ProductVariant, RatingSummary, Review } from '@/types/storefront';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Minus, Plus, ShoppingCart } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
 interface ProductPageProps {
     product: Product;
@@ -53,9 +54,25 @@ export default function ProductPage({ product, relatedProducts, rating, reviews,
         setData('quantity', next);
     }
 
+    // One view per product, not one per variant: picking a size is still
+    // looking at the same shirt, and GA4 would otherwise count a visitor who
+    // clicks through four sizes as four product views.
+    useEffect(() => {
+        if (product.variants[0]) {
+            trackViewItem(product, product.variants[0]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [product.id]);
+
     function addToCart(event: FormEvent) {
         event.preventDefault();
-        post(route('cart.lines.store'), { preserveScroll: true });
+        post(route('cart.lines.store'), {
+            preserveScroll: true,
+            // On success only. An add the server refused - out of stock, or
+            // more than is left - is not an add, and counting it makes the
+            // cart-abandonment rate a measure of this bug.
+            onSuccess: () => trackAddToCart(product, selectedVariant, data.quantity),
+        });
     }
 
     return (

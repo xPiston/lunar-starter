@@ -109,6 +109,42 @@ final class CheckoutTest extends TestCase
         );
     }
 
+    /**
+     * The analytics `purchase` event is worth exactly one order.
+     *
+     * The confirmation page keeps the order in the session, so it survives a
+     * refresh, a back button and a shared link. Reporting on every render
+     * would inflate the revenue a shop reconciles against Stripe, and nothing
+     * in Analytics would flag it.
+     */
+    public function test_a_purchase_is_reported_once_however_often_the_confirmation_is_reloaded(): void
+    {
+        config(['lunar.stripe.allow_partial_payment' => true]);
+        config(['lunar.stripe.sync_addresses' => false]);
+        Stripe::fake();
+        Mail::fake();
+
+        $this->addProductToCart();
+        $this->postAddress();
+        $this->post(route('checkout.shipping-option'), ['identifier' => 'standard']);
+        $this->post(route('checkout.complete'), ['payment_intent' => 'PI_CAPTURE']);
+
+        $this->get(route('checkout.confirmation'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('reportPurchase', true));
+
+        foreach (range(1, 3) as $ignored) {
+            $this->get(route('checkout.confirmation'))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    // Still the same order on screen - only the reporting
+                    // flag is spent.
+                    ->where('order.placed', true)
+                    ->where('reportPurchase', false)
+                );
+        }
+    }
+
     private function addProductToCart(): void
     {
         $product = $this->createDemoProduct('T-shirt', 2499);

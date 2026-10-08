@@ -4,12 +4,13 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import StorefrontLayout from '@/layouts/storefront-layout';
+import { trackAddPaymentInfo, trackAddShippingInfo, trackBeginCheckout } from '@/lib/ecommerce';
 import type { Address, Cart, CheckoutSummary, Country } from '@/types/storefront';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { Check, CreditCard, MapPin, ShoppingCart } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 interface CheckoutPageProps {
     cart: Cart;
@@ -175,17 +176,27 @@ function AddressFields({ prefix, values, countries, errors, onChange }: AddressF
     );
 }
 
-function PaymentStep({ clientSecret, publishableKey, billing }: { clientSecret: string; publishableKey: string; billing: AddressForm }) {
+function PaymentStep({
+    clientSecret,
+    publishableKey,
+    billing,
+    cart,
+}: {
+    clientSecret: string;
+    publishableKey: string;
+    billing: AddressForm;
+    cart: Cart;
+}) {
     const stripePromise = useMemo(() => loadStripe(publishableKey), [publishableKey]);
 
     return (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
-            <PaymentForm billing={billing} />
+            <PaymentForm billing={billing} cart={cart} />
         </Elements>
     );
 }
 
-function PaymentForm({ billing }: { billing: AddressForm }) {
+function PaymentForm({ billing, cart }: { billing: AddressForm; cart: Cart }) {
     const stripe = useStripe();
     const elements = useElements();
     const [processing, setProcessing] = useState(false);
@@ -200,6 +211,11 @@ function PaymentForm({ billing }: { billing: AddressForm }) {
 
         setProcessing(true);
         setError(null);
+
+        // Before the call, not after: `add_payment_info` records that someone
+        // tried to pay. A card that is declined is exactly the case this
+        // event exists to make visible, and firing on success would hide it.
+        trackAddPaymentInfo(cart);
 
         const result = await stripe.confirmPayment({
             elements,
@@ -294,6 +310,16 @@ export default function CheckoutPage({ cart, checkout }: CheckoutPageProps) {
         shipping: fromDomain(checkout.state.shipping_address ?? checkout.state.billing_address),
     });
 
+    // Entering the checkout at all, reported once. The dependency is the
+    // cart id rather than the cart: every address keystroke re-renders this
+    // page, and begin_checkout is not a thing that happens forty times.
+    useEffect(() => {
+        if (cart.lines.length > 0) {
+            trackBeginCheckout(cart);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cart.id]);
+
     function submitAddress(event: FormEvent) {
         event.preventDefault();
 
@@ -306,7 +332,17 @@ export default function CheckoutPage({ cart, checkout }: CheckoutPageProps) {
     }
 
     function selectShipping(identifier: string) {
-        router.post(route('checkout.shipping-option'), { identifier }, { preserveScroll: true });
+        router.post(
+            route('checkout.shipping-option'),
+            { identifier },
+            {
+                preserveScroll: true,
+                onSuccess: () =>
+                    // The name, not the identifier: "Standard delivery" is
+                    // what a report is read with, `std-48h` is not.
+                    trackAddShippingInfo(cart, checkout.shipping_options.find((option) => option.identifier === identifier)?.name ?? identifier),
+            },
+        );
     }
 
     return (
@@ -409,6 +445,7 @@ export default function CheckoutPage({ cart, checkout }: CheckoutPageProps) {
                                 clientSecret={checkout.payment_intent.client_secret}
                                 publishableKey={checkout.payment_intent.publishable_key}
                                 billing={data.billing}
+                                cart={cart}
                             />
                         ) : (
                             <p className="text-muted-foreground text-sm">Complete the address and shipping steps to pay.</p>

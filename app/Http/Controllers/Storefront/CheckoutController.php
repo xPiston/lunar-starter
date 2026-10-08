@@ -141,6 +141,18 @@ final class CheckoutController extends Controller
 
         return Inertia::render('storefront/checkout-confirmation', [
             'order' => $order,
+            // Whether the analytics `purchase` event should fire, decided
+            // here rather than in the browser because this page is reachable
+            // again: the order stays in the session, so a refresh, a back
+            // button or a shared link would report a second order that never
+            // happened. `pull` reads it once and removes it, so only the
+            // first render of a given order carries it.
+            //
+            // The trade-off is deliberate: if that first render never reaches
+            // the browser, the sale goes unreported. Missing one order is a
+            // gap; inventing one inflates the revenue a shop reconciles
+            // against its payment processor.
+            'reportPurchase' => (bool) session()->pull('checkout.purchase_unreported', false),
             'meta' => (new PageMeta(title: 'Order confirmed', description: 'Your order is confirmed.', noindex: true))->toArray(),
         ]);
     }
@@ -153,7 +165,10 @@ final class CheckoutController extends Controller
             return redirect()->route('checkout.show')->withErrors(['payment' => $exception->getMessage()]);
         }
 
-        session(['checkout.last_order' => $order->toArray()]);
+        session([
+            'checkout.last_order' => $order->toArray(),
+            'checkout.purchase_unreported' => true,
+        ]);
 
         return redirect()->route('checkout.confirmation');
     }

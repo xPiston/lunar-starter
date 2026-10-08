@@ -1,15 +1,35 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import StorefrontLayout from '@/layouts/storefront-layout';
+import { trackPurchase } from '@/lib/ecommerce';
 import type { Order } from '@/types/storefront';
 import { Head, Link } from '@inertiajs/react';
 import { CheckCircle2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 interface CheckoutConfirmationPageProps {
     order: Order;
+    // Set by the server on the first render of this order only - see
+    // CheckoutController::confirmation().
+    reportPurchase: boolean;
 }
 
-export default function CheckoutConfirmationPage({ order }: CheckoutConfirmationPageProps) {
+export default function CheckoutConfirmationPage({ order, reportPurchase }: CheckoutConfirmationPageProps) {
+    // The server already guarantees one render per order. This guards the
+    // other half: React runs an effect twice in development's strict mode,
+    // and one order reported twice is the bug this whole path exists to
+    // avoid.
+    const reported = useRef(false);
+
+    useEffect(() => {
+        if (!reportPurchase || reported.current) {
+            return;
+        }
+
+        reported.current = true;
+        trackPurchase(order);
+    }, [order, reportPurchase]);
+
     return (
         <StorefrontLayout>
             <Head title="Order confirmed" />

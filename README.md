@@ -203,6 +203,39 @@ where Blade's escaping does not reach: an id that doesn't match `GTM-…` or
 `G-…` exactly is dropped rather than rendered. `GTM-X');evil('` is a perfectly
 valid environment variable.
 
+**The ecommerce funnel is reported, not just page views.** `view_item`,
+`add_to_cart`, `remove_from_cart`, `view_cart`, `begin_checkout`,
+`add_shipping_info`, `add_payment_info` and `purchase`, in GA4's own shape —
+pushed to the dataLayer wrapped in `ecommerce` for Tag Manager, and flat to
+`gtag`, because the two read different shapes and sending one to both reports
+nothing to the other.
+
+Four things in there are the difference between a report you can trust and one
+you cannot:
+
+- **`purchase` fires once per order, and the server decides.** The
+  confirmation page keeps the order in the session, so it survives a refresh,
+  a back button and a shared link. The flag is `pull`ed, so only the first
+  render carries it. The trade-off is deliberate: if that render never reaches
+  the browser the sale goes unreported, because missing one order is a gap
+  while inventing one inflates the revenue you reconcile against Stripe.
+- **Amounts are decimals, not minor units.** The conversion uses the
+  `decimal_places` the amount carries rather than dividing by 100 — two for
+  the euro, zero for the yen.
+- **Price breaks are honoured.** Three mugs at a tier do not cost three times
+  one mug, and reporting the list price would show value evaporating between
+  the cart and the purchase for a reason that is not abandonment.
+- **A quantity change is a delta.** GA4 has no "quantity changed": going from
+  3 to 1 is a removal of two, not of the whole line.
+
+Items are identified by `item_name`, not an id: a cart line deliberately knows
+nothing about what is on it — it may hold one variant or a whole bundle — so
+there is no product reference to send from the cart or the order, and using
+the name everywhere at least keeps one funnel joined. Two products sharing a
+name are one row in the reports, and renaming one starts a new row. Fixing
+that means carrying a stable reference on `CartLine` and `OrderLine`, which is
+a domain change, not an analytics one.
+
 **A page view is reported per Inertia navigation, not per page load.** Both
 Google tags count a view when the document loads, which on this storefront
 happens once. Without `resources/js/lib/analytics.ts`, a visitor who browses a
