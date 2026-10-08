@@ -182,6 +182,44 @@ Adding a third ERP is one class: implement `App\Domain\Erp\Port\ErpGateway`,
 add a `match` arm in `DomainServiceProvider`. Nothing in `app/Domain` or
 `app/Application` moves.
 
+## 📈 Analytics
+
+Optional, and off unless asked for. With no id configured, not one byte of
+Google is served — which is also the state the test suite and local
+development run in.
+
+| Variable | What it loads |
+| --- | --- |
+| `GOOGLE_TAG_MANAGER_ID` | Tag Manager (`GTM-…`), which then loads whatever tags the container holds |
+| `GOOGLE_ANALYTICS_ID` | GA4 directly through gtag.js (`G-…`) |
+| `ANALYTICS_REQUIRE_CONSENT` | Consent Mode defaults, on by default |
+
+**Use one or the other.** A GA4 tag inside the container *and* the measurement
+id here counts every page view twice, and nothing in the resulting data says
+which half to discard.
+
+**Ids are validated, not just printed.** They land inside a `<script>` block,
+where Blade's escaping does not reach: an id that doesn't match `GTM-…` or
+`G-…` exactly is dropped rather than rendered. `GTM-X');evil('` is a perfectly
+valid environment variable.
+
+**A page view is reported per Inertia navigation, not per page load.** Both
+Google tags count a view when the document loads, which on this storefront
+happens once. Without `resources/js/lib/analytics.ts`, a visitor who browses a
+collection, opens three products and checks out is recorded as having seen one
+page. The first view still comes from the tag itself, so a visitor whose
+JavaScript fails is not lost, and the listener skips the url it was loaded on
+so that view is not counted twice.
+
+**Consent is denied before any tag loads**, for every storage type Google
+defines, because in the EU that is the condition under which these scripts may
+run at all — not a preference. The consequence is stated plainly: this template
+ships **no consent banner**, so consent is never granted and your reports stay
+cookieless until you build one and call `grantAnalyticsConsent()`.
+`ANALYTICS_REQUIRE_CONSENT=false` collects everything from the first byte; it
+is the configuration that produces complete reports and the one a French shop
+gets fined for. The choice is yours, and deliberately not the default.
+
 ## 📚 Documentation
 
 | Guide | What's in it |
@@ -201,6 +239,8 @@ Deliberately out of scope, so you know what you're picking up:
 - Refunds and fulfillment tracking, which live in the admin panel
 - Shipping-status emails (order confirmations and abandoned cart
   reminders are sent; "your order has shipped" isn't)
+- A cookie consent banner — the analytics tags ship with consent denied and a
+  `grantAnalyticsConsent()` to call, but the banner itself is yours to design
 - `/terms` and `/privacy` are structural placeholders, **not legal advice**
 
 Full detail in [Not included](docs/features.md#known-limitations).

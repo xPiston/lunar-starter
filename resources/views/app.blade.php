@@ -8,6 +8,7 @@
     $description = $meta['description'] ?? null;
     $image = $meta['image_url'] ?? null;
     $canonical = url()->current();
+    $analytics = App\Http\Analytics\Tags::fromConfig();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -68,12 +69,17 @@
             <script type="application/ld+json">@json($meta['json_ld'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)</script>
         @endif
 
+        {{-- Before the bundle: a tag that loads after the page it measures
+             misses the visitors who leave first. --}}
+        @include('partials.analytics-head')
+
         @routes
         @viteReactRefresh
         @vite(['resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
+        @include('partials.analytics-noscript')
         @inertia
     </body>
 </html>
