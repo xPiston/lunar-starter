@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # ---- Base FrankenPHP (PHP extensions required by Lunar) -------------------
-FROM dunglas/frankenphp:1.13.0-php8.5 AS frankenphp_base
+FROM dunglas/frankenphp:1.13.3-php8.5 AS frankenphp_base
 
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 WORKDIR /app
