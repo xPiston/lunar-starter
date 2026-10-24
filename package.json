@@ -1,4 +1,5 @@
 {
+    "name": "ecommerce-hexa-template",
     "private": true,
     "type": "module",
     "scripts": {
