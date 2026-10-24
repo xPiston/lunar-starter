@@ -1,11 +1,14 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/react-starter-kit",
+    "name": "xpiston/ecommerce-hexa-template",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "A production-ready Laravel storefront that won't trap you in its own engine.",
     "keywords": [
         "laravel",
-        "framework"
+        "lunar",
+        "ecommerce",
+        "storefront",
+        "hexagonal-architecture"
     ],
     "license": "MIT",
     "require": {
