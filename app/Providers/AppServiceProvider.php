@@ -84,12 +84,38 @@ class AppServiceProvider extends ServiceProvider
             'bundle' => ProductBundle::class,
         ]);
 
-        // What to eager load per kind of purchasable. Lunar's published
-        // config lists `taxClass`, `values` and `product`, which only exist
-        // on a product variant - a cart holding a bundle would throw
-        // RelationNotFoundException before rendering. `morphWith` is the
-        // Eloquent answer, and it needs a closure, which is why this cannot
-        // live in a config file that has to survive `config:cache`.
+        $this->eagerLoadPurchasables();
+    }
+
+    /**
+     * What to eager load per kind of purchasable.
+     *
+     * Lunar's published config lists `taxClass`, `values` and `product`,
+     * which only exist on a product variant - a cart holding a bundle would
+     * throw RelationNotFoundException before rendering. `morphWith` is the
+     * Eloquent answer, and it needs a closure, which is why this cannot live
+     * in a config file.
+     *
+     * It cannot be written here unguarded either. `config:cache` boots the
+     * providers and then serialises the whole config repository with
+     * `var_export`, so a closure put into the config by boot() ends up in the
+     * file it writes - and a closure has no PHP source form. The command dies
+     * on it ("Call to undefined method Closure::__set_state"), and because
+     * frankenphp/docker-entrypoint.sh runs `config:cache` on startup, the
+     * production container dies with it.
+     *
+     * Skipping those two commands costs nothing: boot() runs on every request
+     * and every queue job whether the config is cached or not, so the cached
+     * file carries the string relations and this closure is laid on top of it
+     * each time. `tests/Feature/ConfigCacheTest.php` is what keeps it that
+     * way.
+     */
+    private function eagerLoadPurchasables(): void
+    {
+        if ($this->cachingConfiguration()) {
+            return;
+        }
+
         config(['lunar.cart.eager_load' => array_merge(
             (array) config('lunar.cart.eager_load', []),
             [
@@ -99,6 +125,26 @@ class AppServiceProvider extends ServiceProvider
                 ]),
             ],
         )]);
+    }
+
+    /**
+     * Whether this process is on its way to writing the config cache.
+     *
+     * Searches the whole command line rather than using
+     * `runningConsoleCommand()`, which only looks at the first argument:
+     * `php artisan --no-interaction config:cache` would walk straight past
+     * that check and take the container down with it.
+     */
+    private function cachingConfiguration(): bool
+    {
+        if (! $this->app->runningInConsole()) {
+            return false;
+        }
+
+        /** @var array<int, string> $argv */
+        $argv = $_SERVER['argv'] ?? [];
+
+        return array_intersect(['config:cache', 'optimize'], $argv) !== [];
     }
 
     /**

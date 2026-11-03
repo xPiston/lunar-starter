@@ -41,6 +41,19 @@ docker compose -f docker-compose.prod.yml run --rm app php artisan lunar:install
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+**The container caches the config on every start.**
+`frankenphp/docker-entrypoint.sh` runs `config:cache`, `route:cache`,
+`view:cache` and `event:cache` before handing over to FrankenPHP, and exits
+if any of them fails — so a config the framework cannot serialise means a
+container that never starts. Laravel caches the config by `var_export`ing it
+*after* booting the service providers, which makes anything a provider writes
+into the config at boot time part of what gets exported: a closure there (and
+`AppServiceProvider` does need one, for the cart's `morphWith`) kills the
+command with `Call to undefined method Closure::__set_state`. See
+`AppServiceProvider::eagerLoadPurchasables()` for how that one is kept out of
+the export, and `tests/Feature/ConfigCacheTest.php`, which runs the real
+command in a subprocess so the suite fails rather than the deployment.
+
 **Never run `php artisan db:seed` in production**: `DatabaseSeeder` creates
 a *demo* user and catalog via factories (`fakerphp/faker`), a **dev-only**
 package absent from the production image (`composer install --no-dev`) —
