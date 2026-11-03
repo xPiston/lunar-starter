@@ -11,6 +11,16 @@
 	root * public/
 	encode zstd gzip
 
+	# Vite writes content-hashed filenames into public/build/assets, so a
+	# given URL there can never change contents - which is exactly what
+	# `immutable` promises. Without this Caddy still sends Etag and
+	# Last-Modified, so a returning visitor pays a conditional GET per asset
+	# before the first byte of the page's CSS or JS: correct, and a round
+	# trip each. Nothing else under public/ is hashed (favicon, images),
+	# so nothing else gets the promise.
+	@hashed path /build/assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+
 	php_server {
 		try_files {path} index.php
 	}

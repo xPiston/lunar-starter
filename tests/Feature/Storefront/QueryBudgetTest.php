@@ -31,11 +31,46 @@ use Tests\TestCase;
  * The numbers are headroom, not targets: they are set well above what the
  * code does today, so ordinary work does not trip them and a regression of
  * this shape - which multiplies rather than adds - does.
+ *
+ * These run under the drivers production uses, not the suite's. `phpunit.xml`
+ * sets SESSION_DRIVER and CACHE_STORE to `array`, which is right for every
+ * other test - it is faster and it isolates them - but it means a storefront
+ * request in the suite never touches the session table, while
+ * `.env.example` has it on `database`, where every page view is a `select`
+ * and an `update` on `sessions`. A budget measured without them is a budget
+ * that under-reports what a visitor actually costs, so this class opts back
+ * in. Measured: two queries per request, and *zero* for the cache - nothing
+ * on the storefront reads it, which is its own finding.
  */
 final class QueryBudgetTest extends TestCase
 {
     use RefreshDatabase;
     use SeedsLunarStorefront;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config([
+            'session.driver' => 'database',
+            'cache.default' => 'database',
+            // Session garbage collection is a lottery - `[2, 100]` by
+            // default, so two requests in a hundred also run a `delete from
+            // sessions`. Left on, this class fails about one run in seven
+            // with one query more than it budgeted, which is the worst thing
+            // a budget can do: a test nobody trusts gets its number raised
+            // until it asserts nothing. Production wants the lottery;
+            // a measurement wants a number it can reproduce.
+            'session.lottery' => [0, 100],
+        ]);
+
+        // The managers are resolved singletons by now, each holding the
+        // driver it was built with; forgetting them is what makes the config
+        // above take effect on the next request.
+        foreach (['session', 'session.store', 'cache', 'cache.store'] as $resolved) {
+            $this->app->forgetInstance($resolved);
+        }
+    }
 
     /**
      * Counts the queries one request makes, warming up first.
@@ -45,15 +80,23 @@ final class QueryBudgetTest extends TestCase
      * very first request of a test pays for things no later one does. The
      * measurement has to be of a steady state, or it measures the warm-up.
      *
-     * @return array{count: int, bindings: int}
+     * @return array<int, array{sql: string, bindings: int}>
      */
-    private function budgetFor(string $url): array
+    private function queriesFor(string $url): array
     {
         $this->get($url)->assertOk();
 
+        // A test reuses one application for both requests, so anything bound
+        // `scoped` - the catalogue adapter, which memoises the navbar's
+        // collection list - would still be warm from the warm-up and its
+        // queries would not appear below. Production never is: classic
+        // FrankenPHP builds a new application per request, and a worker-mode
+        // runtime calls exactly this between them.
+        $this->app->forgetScopedInstances();
+
         $queries = [];
         DB::listen(function ($query) use (&$queries): void {
-            $queries[] = count($query->bindings);
+            $queries[] = ['sql' => $query->sql, 'bindings' => count($query->bindings)];
         });
 
         $this->get($url)->assertOk();
@@ -62,7 +105,38 @@ final class QueryBudgetTest extends TestCase
         // rebuilt between tests, but not between the two requests above.
         DB::flushQueryLog();
 
-        return ['count' => count($queries), 'bindings' => $queries === [] ? 0 : max($queries)];
+        return $queries;
+    }
+
+    /**
+     * @return array{count: int, bindings: int}
+     */
+    private function budgetFor(string $url): array
+    {
+        $queries = $this->queriesFor($url);
+        $bindings = array_column($queries, 'bindings');
+
+        return ['count' => count($queries), 'bindings' => $bindings === [] ? 0 : max($bindings)];
+    }
+
+    /**
+     * How many of a request's queries have the given table as their subject.
+     *
+     * The first `from` in a statement is the statement's own; any after it
+     * belong to a subquery, and counting those is wrong - Lunar looks up its
+     * discounts with a `where exists (select * from "lunar_collections" ...)`,
+     * which is not a second read of the collection list.
+     */
+    private function readsOf(string $table, string $url): int
+    {
+        return count(array_filter(
+            $this->queriesFor($url),
+            function (array $query) use ($table): bool {
+                preg_match('/\bfrom "([a-z_]+)"/', $query['sql'], $subject);
+
+                return ($subject[1] ?? null) === $table;
+            },
+        ));
     }
 
     private function collectionOf(string $name, int $products): string
@@ -124,6 +198,53 @@ final class QueryBudgetTest extends TestCase
             "The sitemap's widest query carried {$large['bindings']} parameters for 15 products against "
             ."{$small['bindings']} for 3: the published set is being fetched and sent back rather than "
             .'left as a subquery.',
+        );
+    }
+
+    /**
+     * Every storefront page carries the same chrome - the navbar's
+     * collections, the footer's editorial pages, the flag that says whether
+     * there are bundles to link to - and none of it depends on the page. It
+     * is the cheapest thing in the application to get wrong, because the cost
+     * is paid on every request rather than on one page.
+     *
+     * This is the one the existing tests could not see: the home page read
+     * the collection list twice, once for the navigation and once for its own
+     * tiles, and since the duplication is constant in the number of products
+     * the comparison above held perfectly while the page did twice the work.
+     */
+    public function test_the_navigation_is_read_once_per_request(): void
+    {
+        $this->collectionOf('Shared', 2);
+
+        foreach (['/', '/cart'] as $url) {
+            $this->assertSame(
+                1,
+                $this->readsOf('lunar_collections', $url),
+                "{$url} queried lunar_collections more than once: two callers are asking for the navbar's "
+                .'list without sharing it (see LunarProductCatalog::listCollections).',
+            );
+        }
+    }
+
+    /**
+     * A page with nothing on it still costs the chrome, the session read and
+     * the session write. That floor is what every visitor pays before the
+     * page they asked for is considered, so it gets a ceiling of its own:
+     * what trips this is not a multiplication but an accretion - one more
+     * always-on lookup added to the layout, which no functional test would
+     * ever notice.
+     */
+    public function test_an_empty_page_pays_only_for_the_chrome(): void
+    {
+        $budget = $this->budgetFor('/cart');
+
+        $this->assertLessThanOrEqual(
+            16,
+            $budget['count'],
+            "An empty cart ran {$budget['count']} queries. Twelve of them are the floor - the session read "
+            .'and write, the navbar, the footer pages, the bundle flag and the empty cart itself; past '
+            .'sixteen, something always-on has been added to every page in the shop.',
         );
     }
 }

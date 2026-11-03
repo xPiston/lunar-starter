@@ -178,17 +178,31 @@ reads, builds a document per product and lowercases every value looking for
 a substring. `benchmarks/search.js` and a query log measured what that cost,
 and it is not a detail:
 
-| Products | Scout `collection` | This query |
+| Products | Scout `collection` | These queries |
 | --- | --- | --- |
 | 7 | 273 ms | 273 ms |
 | 2 007 | 9.22 s | 426 ms |
-| 10 007 | **78 s**, +142 MB | 917 ms |
+| 10 007 | **78 s**, +142 MB | **278 ms** |
 
 A term matching *nothing* cost the same as one matching everything, because
-the engine had to look at all of it to find out. The database query is still
-a scan — an unanchored `LIKE` cannot use a b-tree — but a scan of one column
-in Postgres rather than ten thousand hydrated Eloquent models in PHP. Past
+the engine had to look at all of it to find out. What replaced it is still a
+scan — an unanchored `LIKE` cannot use a b-tree — but a scan of one column in
+Postgres rather than ten thousand hydrated Eloquent models in PHP. Past
 roughly this size, a real engine stops being optional.
+
+It is deliberately **three queries unioned**, not one with an `or`. Attributes,
+SKUs and brand each get their own select, because putting the last two in the
+row filter as `or whereHas(...)` makes the database test every product against
+all three conditions: `explain (analyze)` measured 522 ms that way against
+41.9 ms unioned, on the same ten thousand products and the same term. A
+trigram index was measured here too (9.5 ms) and left out on purpose —
+`benchmarks/README.md` has that table and the reasoning.
+
+The union also stays in SQL as a subquery rather than being run for its ids,
+so the page costs the same whatever was typed: 272 ms for a term matching the
+whole catalogue against 281 ms for one matching 127 products. Fetching those
+ids into PHP instead cost 104 ms on the narrow term and **815 ms** on the
+broad one.
 
 - `whereLike` compiles to `ilike` on Postgres and a case-insensitive `like`
   on MySQL, so the behaviour is the same on either.
@@ -201,6 +215,9 @@ roughly this size, a real engine stops being optional.
   collection engine, so on the demo catalogue "published" returned all seven
   products and "stock" returned all seven again, that being the name of the
   product type. Internal metadata is not a search term.
+- Each branch is a select of product ids, so adding a fourth searchable thing
+  means adding a union member rather than another clause inside a filter that
+  already runs on every row.
 - Search only ever returns `status = 'published'` products in the current
   channel — the same rule as every other catalog listing. Either path
   resolves matching ids first, then a normal Eloquent query re-applies that

@@ -82,6 +82,34 @@ and builds product image conversions, and the scheduler is what runs
 `carts:send-abandoned-reminders` hourly. Drop either one and the storefront
 still works, silently, without ever emailing anyone.
 
+### Static assets are promised immutable
+
+`frankenphp/Caddyfile` sends
+`Cache-Control: public, max-age=31536000, immutable` for `/build/assets/*` and
+nothing else. Vite writes content-hashed filenames there, so one of those URLs
+can never change contents and the promise is honest; a new build means new
+names, which is also what makes a deployment visible to a browser holding the
+old ones. Without the header Caddy still sends `Etag` and `Last-Modified`, so
+a returning visitor is correct but pays a conditional GET per asset before the
+first byte of the page's CSS or JS arrives.
+
+Nothing else under `public/` is hashed - the favicon, anything uploaded there,
+anything hand-placed - so nothing else gets the promise. Adding a path to that
+matcher means promising a URL's contents will never change; a file served
+under a stable name does not qualify.
+
+### What a request costs before it does anything
+
+The health route `/up` boots the framework and every service provider, then
+answers without reading the database or the session. On the benchmark
+machine's production image that is **76 ms**, against 169 ms for the home
+page - so nearly half the cost of the cheapest real page is the application
+starting, on every single request, by design: that is what classic mode is.
+
+Worth knowing before reaching for worker mode, and worth knowing when reading
+a flame graph: `benchmarks/README.md` has the numbers and what they do and do
+not justify.
+
 ### SERVER_NAME (domain vs. behind a reverse proxy)
 
 `frankenphp/Caddyfile` reads `SERVER_NAME`: a real domain name

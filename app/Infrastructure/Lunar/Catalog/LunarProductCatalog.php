@@ -146,23 +146,42 @@ final class LunarProductCatalog implements ProductCatalog
      */
     public function search(string $term, ProductQuery $query): ProductListing
     {
-        // One shape, two sources for the ids. Asking for the ids first and
-        // paging over them separately is not just symmetry with the Scout
-        // path: `paginate()` counts the whole result before slicing it, so
-        // handing it the matching query directly would run the scan twice -
-        // measured at 568 ms for the page and 652 ms for the count, on the
-        // same 10 000 products. The list is bounded by the catalogue rather
-        // than by the page, which is the same bargain the indexed path has
-        // always made.
-        $ids = $this->hasSearchIndex()
-            ? LunarProduct::search($term)->keys()
-            : $this->matching($term)->pluck('id');
+        // Without an index the match stays in SQL, as a subquery, so that
+        // what the page costs does not depend on what the shopper typed.
+        // Fetching the matching ids into PHP and paging over them is cheaper
+        // for a narrow term and ruinous for a broad one, because the list it
+        // carries is bounded by the catalogue rather than by the page.
+        // Measured at 10 007 products:
+        //
+        //                        ids in PHP   this subquery
+        //   term matching    127     104 ms          141 ms
+        //   term matching 10 007     815 ms          133 ms
+        //
+        // The subquery gives up 37 ms on the first line to not have the
+        // second one. `whereIntegerInRaw` was measured too, in case the
+        // 10 013 bind parameters were the cost: 828 ms. They were not - the
+        // cost is materialising the set at all.
+        if (! $this->hasSearchIndex()) {
+            return $this->paginate(
+                LunarProduct::query()->whereIn('lunar_products.id', $this->matching($term)),
+                $query,
+            );
+        }
+
+        // With an index the ids come from outside the database and there is
+        // no subquery to be had, so this path still carries a list - inlined
+        // rather than bound, which is the same wall avoided for the price of
+        // a longer statement.
+        $ids = LunarProduct::search($term)->keys();
 
         if ($ids->isEmpty()) {
             return ProductListing::empty($query);
         }
 
-        return $this->paginate(LunarProduct::query()->whereIn('id', $ids), $query);
+        return $this->paginate(
+            LunarProduct::query()->whereIntegerInRaw('lunar_products.id', $ids->all()),
+            $query,
+        );
     }
 
     /**
@@ -212,6 +231,19 @@ final class LunarProductCatalog implements ProductCatalog
      * grammar quotes each path segment, so an exotic handle is escaped rather
      * than executed.
      *
+     * Three questions, asked separately and unioned, rather than one `or`.
+     * This is the shape the database can answer, and it is worth 12x: the
+     * `or whereHas(...)` version this replaces put the SKU and brand lookups
+     * inside the row filter, so every one of the 10 007 products in the
+     * benchmark catalogue was tested against two subplan probes on top of its
+     * own attributes. `explain (analyze)` on that query, for a term matching
+     * a thousand products: **522 ms**, a sequential scan over the products
+     * and another over all 20 015 variants. The same three conditions as a
+     * union of three selects, each free to be planned on its own: **41.9 ms**.
+     *
+     * A trigram index was measured here too and deliberately left out - see
+     * `benchmarks/README.md` for the numbers and the reasoning.
+     *
      * @return Builder<LunarProduct>
      */
     private function matching(string $term): Builder
@@ -223,14 +255,30 @@ final class LunarProductCatalog implements ProductCatalog
         // anyone who wants one.
         $contains = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term).'%';
 
-        return LunarProduct::query()->where(function (Builder $products) use ($contains): void {
-            foreach ($this->searchableHandles() as $handle) {
-                $products->orWhereLike("attribute_data->{$handle}->value", $contains);
-            }
+        $attributes = LunarProduct::query()
+            ->select('lunar_products.id')
+            ->where(function (Builder $products) use ($contains): void {
+                foreach ($this->searchableHandles() as $handle) {
+                    $products->orWhereLike("attribute_data->{$handle}->value", $contains);
+                }
+            });
 
-            $products->orWhereHas('variants', fn (Builder $variants) => $variants->whereLike('sku', $contains));
-            $products->orWhereHas('brand', fn (Builder $brands) => $brands->whereLike('name', $contains));
-        });
+        // A customer holding a delivery note types the code on it. Selected
+        // from the variants rather than asked of each product, so this branch
+        // reads the variant table once instead of once per candidate.
+        $skus = LunarProductVariant::query()
+            ->select('product_id')
+            ->whereLike('sku', $contains);
+
+        // A brand is the one thing in Scout's document a customer would
+        // actually type, so it stays searchable - as a join, which is what
+        // `whereHas` was doing per row.
+        $brands = LunarProduct::query()
+            ->select('lunar_products.id')
+            ->join('lunar_brands', 'lunar_brands.id', '=', 'lunar_products.brand_id')
+            ->whereLike('lunar_brands.name', $contains);
+
+        return $attributes->union($skus)->union($brands);
     }
 
     /**
@@ -263,6 +311,15 @@ final class LunarProductCatalog implements ProductCatalog
         // Counted before the ordering and the window: a page is only
         // meaningful against the size of the whole result.
         $total = (clone $products)->distinct()->count('lunar_products.id');
+
+        // Nothing matched, so there is no page to fetch. Laravel's own
+        // paginator makes the same short-circuit, and here it is worth more
+        // than a saved round trip: when the query carries a scan - a search
+        // without an index, a price filter - this is the difference between
+        // running it once and running it twice for no rows.
+        if ($total === 0) {
+            return ProductListing::empty($query);
+        }
 
         $this->applySort($products, $query);
 
@@ -454,8 +511,32 @@ final class LunarProductCatalog implements ProductCatalog
         return $slugs;
     }
 
+    /**
+     * The navbar's collection list, memoised for the request.
+     *
+     * Both halves of this matter, and a query log on the home page is what
+     * showed it: the list was read twice per request there - once by
+     * `HandleInertiaRequests` for the navigation and once by `HomeController`
+     * for the collection tiles - and each read cost two queries, the
+     * collections and their slugs. Neither caller is wrong and neither can
+     * see the other, so the fix belongs here, where the question is asked.
+     *
+     * Memoising only works because the port is bound `scoped` rather than
+     * `bind` (see `DomainServiceProvider`): with a fresh adapter per
+     * injection the two callers never shared one. `scoped` and not
+     * `singleton` so that a worker-mode runtime flushes it between requests -
+     * the published set depends on the channel, which is per request.
+     *
+     * @var CollectionSummary[]|null
+     */
+    private ?array $collections = null;
+
     public function listCollections(): array
     {
+        if ($this->collections !== null) {
+            return $this->collections;
+        }
+
         // `defaultUrl` eager-loaded because the navbar asks for this list on
         // every storefront page (see HandleInertiaRequests): without it each
         // collection fetches its own slug, so the shared navigation costs a
@@ -465,7 +546,7 @@ final class LunarProductCatalog implements ProductCatalog
             ->with('defaultUrl')
             ->get();
 
-        return $collections
+        return $this->collections = $collections
             ->map(fn (LunarCollection $collection): CollectionSummary => new CollectionSummary(
                 id: $collection->id,
                 name: $collection->translateAttribute('name'),

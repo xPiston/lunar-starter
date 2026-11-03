@@ -175,6 +175,17 @@ ever calls the real Stripe API.
 directly (not `Tests\TestCase`) to prove the domain boots no framework at
 all.
 
+`tests/Feature/Storefront/QueryBudgetTest.php` asserts something no other
+test can see: that the work a page does stays the same size as the catalogue
+grows. It counts queries and bind parameters rather than timing anything, so
+it says the same thing on a laptop and on a shared CI runner, and it is what
+caught two of the N+1s listed in `benchmarks/README.md`. It is also the one
+class that opts out of the suite's drivers: `phpunit.xml` runs on `array`
+sessions and cache, which is right everywhere else and hides the two queries
+every real page view spends on the `sessions` table, so this one switches
+itself to `database` - and turns off session garbage collection, which is a
+2-in-100 lottery and would otherwise make the budget a dice roll.
+
 ### Benchmarks (k6)
 
 ```sh

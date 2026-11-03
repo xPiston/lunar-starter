@@ -49,7 +49,13 @@ final class DomainServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->bind(ProductCatalog::class, LunarProductCatalog::class);
+        // `scoped` rather than `bind`: the catalogue adapter memoises the
+        // navbar's collection list, which two independent callers ask for on
+        // the home page, and a fresh instance per injection means they never
+        // share it. Scoped is flushed between requests by a worker-mode
+        // runtime; a singleton would carry one channel's list into the next
+        // request.
+        $this->app->scoped(ProductCatalog::class, LunarProductCatalog::class);
         $this->app->bind(CartGateway::class, LunarCartGateway::class);
         $this->app->bind(CartReminders::class, LunarCartReminders::class);
         $this->app->bind(CheckoutGateway::class, LunarCheckoutGateway::class);
