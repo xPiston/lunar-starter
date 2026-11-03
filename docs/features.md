@@ -159,32 +159,56 @@ states.
 
 ### Product search
 
-`GET /search?q=...` (a search bar in the storefront header on every page) is
-built on Lunar's own `Searchable` trait (`Lunar\Models\Product` already has
-it) rather than a hand-rolled `LIKE` query — it's Laravel Scout underneath,
-and Lunar ships the indexer that flattens each product's translated
-`attribute_data` (name, description, ...) into a plain searchable document
-for it.
+`GET /search?q=...` (a search bar in the storefront header on every page)
+takes one of two paths, depending on whether there is an index to ask.
 
-- Zero extra infrastructure by default: `SCOUT_DRIVER=collection` (Scout's
-  own default, set explicitly in `.env`/`.env.example` for clarity) does an
-  in-memory, case-insensitive substring match — no service to run, no
-  `artisan scout:import` step, works offline and in CI. It's the right
-  choice for a small catalog and the wrong one for a large one: it loads
-  every row into memory per search.
-- Upgrading to a real, relevance-ranked index (Meilisearch, Algolia,
-  Typesense — all supported by Scout) is a config change, not a rewrite:
-  switch `SCOUT_DRIVER`, run `artisan scout:import "Lunar\Models\Product"`,
-  done. `App\Infrastructure\Lunar\Catalog\LunarProductCatalog::search()`
-  doesn't change either way.
+**With a real engine** — `SCOUT_DRIVER=meilisearch`, `algolia`, `typesense` —
+it is Lunar's own `Searchable` trait and Laravel Scout underneath, including
+the indexer Lunar ships to flatten each product's translated
+`attribute_data` into a searchable document. Relevance ranking comes for
+free, and switching to it is a config change plus
+`artisan scout:import "Lunar\Models\Product"`, not a rewrite.
+
+**Without one** — the `collection` default, which needs no service to run —
+it is a database query, in
+`App\Infrastructure\Lunar\Catalog\LunarProductCatalog::matching()`. Scout's
+collection engine would otherwise do the matching in PHP: it `get()`s the
+whole products table, hydrates every model with the relations the indexer
+reads, builds a document per product and lowercases every value looking for
+a substring. `benchmarks/search.js` and a query log measured what that cost,
+and it is not a detail:
+
+| Products | Scout `collection` | This query |
+| --- | --- | --- |
+| 7 | 273 ms | 273 ms |
+| 2 007 | 9.22 s | 426 ms |
+| 10 007 | **78 s**, +142 MB | 917 ms |
+
+A term matching *nothing* cost the same as one matching everything, because
+the engine had to look at all of it to find out. The database query is still
+a scan — an unanchored `LIKE` cannot use a b-tree — but a scan of one column
+in Postgres rather than ten thousand hydrated Eloquent models in PHP. Past
+roughly this size, a real engine stops being optional.
+
+- `whereLike` compiles to `ilike` on Postgres and a case-insensitive `like`
+  on MySQL, so the behaviour is the same on either.
+- `%` and `_` are escaped. They are wildcards to SQL and ordinary characters
+  to a shopper, and unescaped a search for `%` would hand back the whole
+  catalogue.
+- Name, description, **SKU and brand** are matched. What is deliberately not
+  matched is the rest of what Scout's indexer writes into its document:
+  `status`, `product_type` and `created_at` were all searchable through the
+  collection engine, so on the demo catalogue "published" returned all seven
+  products and "stock" returned all seven again, that being the name of the
+  product type. Internal metadata is not a search term.
 - Search only ever returns `status = 'published'` products in the current
-  channel — the same rule as every other catalog listing. Scout resolves
-  matching ids first, then a normal Eloquent query re-applies that rule and
-  the usual eager loading before anything reaches `ProductMapper`.
+  channel — the same rule as every other catalog listing. Either path
+  resolves matching ids first, then a normal Eloquent query re-applies that
+  rule and the usual eager loading before anything reaches `ProductMapper`.
 - Which attributes are searchable is admin-configurable at
   `/lunar/attribute-groups` (the `searchable` flag Lunar already exposes per
   attribute) — nothing on this template's side hardcodes "name" and
-  "description".
+  "description", and turning one off removes it from both paths.
 
 ### Listings: paging, sorting, filtering
 
@@ -209,6 +233,10 @@ from a crawler alike.
   group pricing — the default here — the two agree exactly; with it, a
   listing can disagree with a card's "from" price, and the answer at that
   point is a search index holding a price per group, not a heavier join.
+  It is joined once as an aggregate, not asked per row: as a correlated
+  subquery the database re-ran `min(price)` for every candidate product, and
+  `?sort=price_asc` on a 2 000-product collection took **5.35 s** against
+  280 ms for the join.
 - Ordering by name reads the `name` attribute out of the JSON column, which
   assumes it is plain `Text`, as Lunar ships it. Switched to `TranslatedText`
   it sorts by the raw JSON instead: wrong, harmless, and fixed with a

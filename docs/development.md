@@ -204,15 +204,25 @@ requests a minute per IP and a load generator is one IP, so `cart.js` and
 "Rate limiting" below.
 
 What came out of it on a four-core machine, in short: the production image
-holds about ten requests a second in classic FrankenPHP mode, with no request
-failing even when saturated; a cart mutation costs ~280 ms at p95 and a whole
-purchase ~2.2 s of server time; the write limiter accepts exactly its thirty
-and spends about half the cost of an accepted write on each one it refuses.
-And the finding worth acting on before shipping a real catalogue: with
-`SCOUT_DRIVER=collection`, search grows straight in line with catalogue size —
-273 ms at 7 products, 9.2 s at 2 007, while a collection listing of the same
-catalogue stays flat at ~460 ms. That is the indexless Scout driver
-`.env.example` warns about, with a number on it.
+holds about fifteen requests a second in classic FrankenPHP mode, flat to
+twelve, with no request failing even when saturated; a cart mutation costs
+~280 ms at p95 and a whole purchase ~2.2 s of server time; the write limiter
+accepts exactly its thirty and spends about half the cost of an accepted
+write on each one it refuses.
+
+**Three things it found have since been fixed**, and
+[benchmarks/README.md](../benchmarks/README.md) carries both columns:
+
+- Search, with the default `SCOUT_DRIVER=collection`, took **78 seconds** and
+  142 MB on a 10 000-product catalogue — Scout's indexless engine loads the
+  catalogue into PHP, and a term matching nothing cost the same as one
+  matching everything. It is now a database query: 917 ms.
+- A twelve-product collection page ran **106 queries**. The mapper reads
+  `defaultUrl`, `thumbnail` and each variant's price, and none was
+  eager-loaded. Now 36, and the page went 258 ms → 163 ms.
+- `?sort=price_asc` on a 2 000-product collection took **5.35 s** as a
+  correlated subquery, re-running `min(price)` per candidate product. Joined
+  once as an aggregate: 280 ms.
 
 `artisan bench:catalog --products=2000 --force` is what grows the catalogue to
 measure that; it generates products with deterministic names and spread

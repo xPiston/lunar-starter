@@ -11,7 +11,7 @@ you can actually refactor.
 [![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Lunar](https://img.shields.io/badge/Lunar-1.5-1F2937)](https://lunarphp.io)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![Tests](https://img.shields.io/badge/tests-208%20passing-22C55E)](docs/development.md#tests)
+[![Tests](https://img.shields.io/badge/tests-215%20passing-22C55E)](docs/development.md#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 </div>
@@ -63,7 +63,7 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🐳 FrankenPHP production image
 - 📊 k6 load tests against that image — capacity, search, cart, checkout
   and the rate limiter, with a measured baseline
-- ✅ 208 tests against a real PostgreSQL — no mocked database
+- ✅ 215 tests against a real PostgreSQL — no mocked database
 
 | | |
 | :--: | :--: |

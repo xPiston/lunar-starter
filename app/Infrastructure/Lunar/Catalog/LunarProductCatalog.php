@@ -12,6 +12,11 @@ use App\Domain\Catalog\ProductQuery;
 use App\Domain\Catalog\ProductSort;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Laravel\Scout\EngineManager;
+use Laravel\Scout\Engines\CollectionEngine;
+use Laravel\Scout\Engines\DatabaseEngine;
+use Laravel\Scout\Engines\NullEngine;
+use Lunar\Facades\AttributeManifest;
 use Lunar\Facades\StorefrontSession;
 use Lunar\Models\Collection as LunarCollection;
 use Lunar\Models\Currency as LunarCurrency;
@@ -29,6 +34,27 @@ use Lunar\Models\Url;
  */
 final class LunarProductCatalog implements ProductCatalog
 {
+    /**
+     * What a product card needs, loaded up front.
+     *
+     * Not decoration: `benchmarks/browse.js` and a query log put numbers on
+     * what happens without it. A twelve-product collection page ran **106
+     * queries** - 24 for the variants' prices, 24 more for those prices'
+     * currencies, 24 re-reading the variant each price belongs to, 12 for the
+     * thumbnails and 12 for the slugs - because `ProductMapper::toSummary()`
+     * reads `defaultUrl`, `thumbnail` and each variant's price, and none of
+     * the three was in the eager-load list.
+     *
+     * Every relation here is one the mapper actually reads, and nothing it
+     * does not: `media` (the full gallery) and `variants.values` (the option
+     * labels) are only used on a product's own page, so they belong to
+     * self::DETAIL and would be a hundred rows thrown away on a listing.
+     */
+    private const SUMMARY = ['defaultUrl', 'thumbnail', 'variants.prices.currency'];
+
+    /** The same, plus what only a single product's page renders. */
+    private const DETAIL = ['defaultUrl', 'thumbnail', 'media', 'variants.values', 'variants.prices.currency'];
+
     public function __construct(private readonly ProductMapper $mapper) {}
 
     public function listFeatured(int $limit = 8): array
@@ -41,7 +67,7 @@ final class LunarProductCatalog implements ProductCatalog
         $products = LunarProduct::query()
             ->status('published')
             ->channel(StorefrontSession::getChannel())
-            ->with(['variants.values', 'media'])
+            ->with(self::SUMMARY)
             ->latest()
             ->limit($limit)
             ->get();
@@ -76,28 +102,137 @@ final class LunarProductCatalog implements ProductCatalog
     }
 
     /**
-     * Uses Lunar's built-in `Searchable` trait (Laravel Scout under the
-     * hood) rather than a hand-rolled `LIKE` query: a real store gets a
-     * relevance-ranked Meilisearch/Algolia index for free by changing
-     * `SCOUT_DRIVER` and running `artisan scout:import` - nothing here
-     * changes. Out of the box (`SCOUT_DRIVER=collection`, Scout's own
-     * default, no service to run) it's a plain in-memory substring match
-     * across every searchable attribute, which is fine for a small catalog
-     * but not something to leave running against a large one.
+     * Two paths, chosen by whether there is an index to ask.
      *
-     * Scout returns matching ids first (`->keys()`), then a normal query
-     * re-applies the same published/channel/eager-loading rules as every
-     * other listing here - search never bypasses product visibility.
+     * With a real engine configured (`SCOUT_DRIVER=meilisearch`, `algolia`,
+     * `typesense`...), Lunar's `Searchable` trait does the work and a store
+     * gets relevance ranking for free - that part has not changed, and it is
+     * still why search goes through Scout rather than being hand-rolled.
+     *
+     * Without one, it is a database query instead of Scout's `collection`
+     * engine. That engine has no index and matches in PHP: it `get()`s the
+     * whole products table, hydrates every model with the relations the
+     * indexer reads (variants, thumbnail, product type, brand), builds a
+     * searchable array per product and lowercases every value looking for a
+     * substring. `benchmarks/search.js` measured what that costs - 273 ms at
+     * 7 products, 1.32 s at 250, 4.33 s at 1 000, 9.22 s at 2 007 and
+     * **78 seconds** at 10 007, peaking 142 MB, while a collection listing of
+     * the same catalogue stayed flat at ~460 ms. A term matching nothing cost
+     * the same as one matching everything, because it had to look at all of
+     * it to find out. At that size the page was not slow, it was dead.
+     *
+     * The query below asks Postgres the same question. It is not an index
+     * either: an unanchored LIKE cannot use a b-tree, so this is still a
+     * scan - but a scan of one column in the database rather than a scan of
+     * hydrated Eloquent models in PHP, which is three orders of magnitude of
+     * difference and enough to make the default usable. A catalogue large
+     * enough to feel *this* is the point at which a real engine stops being
+     * optional, and switching to one is still only a config change.
+     *
+     * Either way the ids go through `paginate()`, which re-applies the same
+     * published/channel/eager-loading rules as every other listing here -
+     * search never bypasses product visibility.
      */
     public function search(string $term, ProductQuery $query): ProductListing
     {
-        $ids = LunarProduct::search($term)->keys();
+        // One shape, two sources for the ids. Asking for the ids first and
+        // paging over them separately is not just symmetry with the Scout
+        // path: `paginate()` counts the whole result before slicing it, so
+        // handing it the matching query directly would run the scan twice -
+        // measured at 568 ms for the page and 652 ms for the count, on the
+        // same 10 000 products. The list is bounded by the catalogue rather
+        // than by the page, which is the same bargain the indexed path has
+        // always made.
+        $ids = $this->hasSearchIndex()
+            ? LunarProduct::search($term)->keys()
+            : $this->matching($term)->pluck('id');
 
         if ($ids->isEmpty()) {
             return ProductListing::empty($query);
         }
 
         return $this->paginate(LunarProduct::query()->whereIn('id', $ids), $query);
+    }
+
+    /**
+     * Whether the configured Scout driver actually holds an index.
+     *
+     * Asks the engine rather than reading `scout.driver`, so a project that
+     * registers its own engine is assumed to have an index - which is the
+     * safe default, since the alternative would silently stop using it. The
+     * three listed here are the ones that have nothing to ask: `collection`
+     * matches in PHP, `null` matches nothing, and `database` searches real
+     * columns, which Lunar's attributes are not - they live inside the
+     * `attribute_data` JSON document.
+     */
+    private function hasSearchIndex(): bool
+    {
+        $engine = app(EngineManager::class)->engine();
+
+        return ! $engine instanceof CollectionEngine
+            && ! $engine instanceof DatabaseEngine
+            && ! $engine instanceof NullEngine;
+    }
+
+    /**
+     * Products whose searchable attributes, SKUs or brand contain the term.
+     *
+     * The attributes are the ones flagged `searchable` in the `attributes`
+     * table - the same list the Scout indexer reads, so turning an attribute
+     * off in the admin takes it out of search here too, with or without an
+     * engine. SKUs are matched as well, because a customer holding a
+     * delivery note types the code on it, and so is the brand.
+     *
+     * What is deliberately NOT matched is everything else the Scout indexer
+     * puts in its document. That indexer also writes `status`, `product_type`
+     * and `created_at`, and the collection engine matched a substring against
+     * every value in it - so on the demo catalogue a shopper searching
+     * "published" got all seven products, and "stock" got all seven again,
+     * that being the name of the product type. Measured, not supposed:
+     * `Product::search('published')->keys()` returned 7 of 7. Internal
+     * metadata has no business being a search term; a brand is the one thing
+     * in that document a customer would actually type.
+     *
+     * `whereLike` rather than a raw `ilike`: it compiles to `ilike` on
+     * Postgres and a case-insensitive `like` on MySQL, so this stays the one
+     * place that does not have to know which database is underneath. The
+     * handles go into the JSON path by interpolation because a path is not a
+     * bindable value; they come from the `attributes` table, and the query
+     * grammar quotes each path segment, so an exotic handle is escaped rather
+     * than executed.
+     *
+     * @return Builder<LunarProduct>
+     */
+    private function matching(string $term): Builder
+    {
+        // `%` and `_` are wildcards to SQL and ordinary characters to someone
+        // typing in a search box. Unescaped, a search for "%" would return
+        // the entire catalogue and "a_c" would match "abc" - neither of which
+        // is what the shopper asked, and the first is a free full scan for
+        // anyone who wants one.
+        $contains = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term).'%';
+
+        return LunarProduct::query()->where(function (Builder $products) use ($contains): void {
+            foreach ($this->searchableHandles() as $handle) {
+                $products->orWhereLike("attribute_data->{$handle}->value", $contains);
+            }
+
+            $products->orWhereHas('variants', fn (Builder $variants) => $variants->whereLike('sku', $contains));
+            $products->orWhereHas('brand', fn (Builder $brands) => $brands->whereLike('name', $contains));
+        });
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function searchableHandles(): array
+    {
+        /** @var array<int, string> $handles */
+        $handles = AttributeManifest::getSearchableAttributes(LunarProduct::morphName())
+            ->pluck('handle')
+            ->all();
+
+        return $handles;
     }
 
     /**
@@ -121,7 +256,7 @@ final class LunarProductCatalog implements ProductCatalog
         $this->applySort($products, $query);
 
         $page = $products
-            ->with(['variants.values', 'media'])
+            ->with(self::SUMMARY)
             ->offset($query->offset())
             ->limit($query->perPage)
             ->get();
@@ -172,8 +307,8 @@ final class LunarProductCatalog implements ProductCatalog
             // wrong but harmless - the fix at that point is a generated
             // column, or the search index that faceted sorting wants anyway.
             ProductSort::NameAToZ => $products->orderByRaw("lunar_products.attribute_data->'name'->>'value' asc"),
-            ProductSort::PriceLowToHigh => $products->orderBy($this->cheapestPrice(), 'asc'),
-            ProductSort::PriceHighToLow => $products->orderBy($this->cheapestPrice(), 'desc'),
+            ProductSort::PriceLowToHigh => $this->orderByCheapest($products, 'asc'),
+            ProductSort::PriceHighToLow => $this->orderByCheapest($products, 'desc'),
         };
 
         // Every sort ends on the id so a product never changes page between
@@ -182,8 +317,7 @@ final class LunarProductCatalog implements ProductCatalog
     }
 
     /**
-     * The cheapest base price of a product, as a subquery the database can
-     * order by.
+     * Orders a listing by what its products cost.
      *
      * Base price, not the one `Pricing::for()` would resolve: that one
      * depends on the customer group and quantity tier of whoever is looking,
@@ -193,17 +327,43 @@ final class LunarProductCatalog implements ProductCatalog
      * price shown on a card, and the answer at that point is an index
      * (Meilisearch, Algolia) holding a price per group, not a heavier join.
      *
+     * Joined once, not asked per row. This used to be a correlated subquery -
+     * `min(price)` over the prices of the variants of `lunar_products.id` -
+     * which the database has to run again for every candidate product, and
+     * `benchmarks/browse.js` found the bill: on a 2 000-product collection
+     * `?sort=price_asc` took **5.35 s**, the slowest page in the whole suite
+     * once search had been dealt with. Aggregating the price table once and
+     * joining the result is the same answer in one pass.
+     *
+     * The explicit select is not cosmetic, for the same reason it is not in
+     * `listByCollection()`: a join without it makes the query `select *`
+     * across both tables, and the derived table's `product_id` would
+     * overwrite the product's own id.
+     *
+     * @param  Builder<LunarProduct>  $products
+     */
+    private function orderByCheapest(Builder $products, string $direction): void
+    {
+        $products
+            ->select('lunar_products.*')
+            ->leftJoinSub($this->cheapestPrices(), 'cheapest', 'cheapest.product_id', '=', 'lunar_products.id')
+            ->orderBy('cheapest.amount', $direction);
+    }
+
+    /**
+     * The cheapest base price per product, as a derived table to join.
+     *
      * @return Builder<Model>
      */
-    private function cheapestPrice(): Builder
+    private function cheapestPrices(): Builder
     {
         /** @var Builder<Model> $prices */
         $prices = LunarPrice::query()
-            ->selectRaw('min(price)')
-            ->where('priceable_type', (new LunarProductVariant)->getMorphClass())
-            ->whereIn('priceable_id', LunarProductVariant::query()
-                ->select('id')
-                ->whereColumn('product_id', 'lunar_products.id'));
+            ->selectRaw('lunar_product_variants.product_id as product_id, min(lunar_prices.price) as amount')
+            ->join('lunar_product_variants', 'lunar_product_variants.id', '=', 'lunar_prices.priceable_id')
+            ->whereNull('lunar_product_variants.deleted_at')
+            ->where('lunar_prices.priceable_type', (new LunarProductVariant)->getMorphClass())
+            ->groupBy('lunar_product_variants.product_id');
 
         return $this->basePrices($prices);
     }
@@ -216,6 +376,10 @@ final class LunarProductCatalog implements ProductCatalog
      * price query built here and the one Eloquent passes to a `whereHas`
      * closure, which Lunar's runtime model resolution leaves ungeneric.
      *
+     * Columns are qualified because `cheapestPrices()` joins the variants
+     * table, which has a `min_quantity` of its own - unqualified, the
+     * database cannot tell which one this means and refuses the query.
+     *
      * @param  Builder<Model>  $prices
      * @return Builder<Model>
      */
@@ -225,9 +389,9 @@ final class LunarProductCatalog implements ProductCatalog
         $currency = StorefrontSession::getCurrency();
 
         return $prices
-            ->where('currency_id', $currency->id)
-            ->whereNull('customer_group_id')
-            ->where('min_quantity', '<=', 1);
+            ->where('lunar_prices.currency_id', $currency->id)
+            ->whereNull('lunar_prices.customer_group_id')
+            ->where('lunar_prices.min_quantity', '<=', 1);
     }
 
     public function findBySlug(string $slug): ?Product
@@ -242,7 +406,7 @@ final class LunarProductCatalog implements ProductCatalog
 
         /** @var LunarProduct|null $product */
         $product = $url->element()
-            ->with(['variants.values', 'media'])
+            ->with(self::DETAIL)
             ->status('published')
             ->channel(StorefrontSession::getChannel())
             ->first();
