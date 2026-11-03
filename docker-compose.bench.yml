@@ -1,0 +1,110 @@
+# Benchmark overlay on docker-compose.prod.yml: the production image, on a
+# port of its own, against a database of its own.
+#
+# The target of a benchmark has to be the thing you ship. `php artisan serve`
+# is a development server - it answers requests one at a time per worker, with
+# no opcache worth the name and no cached config - so measuring it tells you
+# about PHP's built-in server, not about this application. The prod image is
+# FrankenPHP with opcache, `validate_timestamps=0` and the
+# config/route/view/event caches its entrypoint builds on startup, which is
+# the only configuration whose numbers mean anything.
+#
+# Usage (the sequence is in benchmarks/README.md as a copy-pasteable block):
+#
+#   cp .env.example .env.bench         # then: APP_KEY (artisan key:generate --show),
+#                                      # APP_ENV=production, APP_DEBUG=false,
+#                                      # APP_URL=http://localhost:8099
+#   B="docker compose -p lunar-bench -f docker-compose.prod.yml -f docker-compose.bench.yml"
+#   $B build
+#   $B run --rm app php artisan migrate --force
+#   $B run --rm app php artisan lunar:create-admin --firstname=Bench --lastname=Admin \
+#       --email=bench@example.com --password=benchbench
+#   $B run --rm app php artisan lunar:install --no-interaction
+#   for s in DemoCatalogSeeder HeroSlideSeeder ContentPageSeeder ProductBundleSeeder \
+#            DiscountDefaultsSeeder ShippingDefaultsSeeder TaxDefaultsSeeder; do
+#       $B run --rm app php artisan db:seed --class=$s --force
+#   done
+#   $B up -d
+#   BASE_URL=http://localhost:8099 ./bin/k6 run benchmarks/smoke.js
+#
+# The seeders are named one by one because `db:seed` on its own runs
+# DatabaseSeeder, which creates its demo user with a factory - and fakerphp
+# is a dev dependency this image does not have. That is deliberate (see
+# docs/deployment.md); every other seeder here is factory-free.
+#
+# Skipping ShippingDefaultsSeeder and TaxDefaultsSeeder leaves a store that
+# cannot be shipped from, which the checkout half of `smoke.js` notices
+# immediately: no address produces a shipping option.
+#
+# `-p lunar-bench` is not optional. Without a project name of its own, compose
+# reuses the prod stack's containers, network and database volume - and a
+# benchmark is the last thing that should be writing to those. With it,
+# everything here is namespaced and `down -v` throws away only this.
+#
+# See benchmarks/README.md for what to run against it and how to read what
+# comes back.
+
+services:
+  app:
+    # 8099 rather than the prod file's 8080, so a benchmark stack can stand
+    # next to a running prod one without a port fight. !override because
+    # compose appends port lists when merging files.
+    ports: !override
+      - '8099:80'
+
+    # !override, not a plain key: compose appends env_file lists when merging,
+    # which would keep demanding .env.prod as well.
+    env_file: !override
+      - .env.bench
+
+    # Pinned here rather than left to .env.bench and the interpolation of
+    # whatever ./.env happens to hold: the credentials of a throwaway database
+    # are not worth a surprise, and this way .env.bench only has to carry an
+    # APP_KEY.
+    environment:
+      APP_ENV: production
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: bench
+      DB_USERNAME: bench
+      DB_PASSWORD: bench
+
+    # A crash during a run should end the run, not quietly restart underneath
+    # it and leave a cold opcache in the middle of the numbers.
+    restart: 'no'
+
+  # Out of the way unless asked for. A queue worker and a scheduler on the
+  # same machine as the benchmark would both compete for CPU and fire jobs
+  # (abandoned-cart reminders, for one) in the middle of a measurement, and
+  # neither is on the request path being measured. `--profile background up -d`
+  # brings them in deliberately, for measuring with them running.
+  worker:
+    profiles: ['background']
+    env_file: !override
+      - .env.bench
+    environment:
+      DB_DATABASE: bench
+      DB_USERNAME: bench
+      DB_PASSWORD: bench
+
+  scheduler:
+    profiles: ['background']
+    env_file: !override
+      - .env.bench
+    environment:
+      DB_DATABASE: bench
+      DB_USERNAME: bench
+      DB_PASSWORD: bench
+
+  db:
+    environment:
+      POSTGRES_DB: bench
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: bench
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bench']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: 'no'

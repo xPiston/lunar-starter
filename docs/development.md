@@ -175,6 +175,50 @@ ever calls the real Stripe API.
 directly (not `Tests\TestCase`) to prove the domain boots no framework at
 all.
 
+### Benchmarks (k6)
+
+```sh
+BASE_URL=http://localhost:8099 ./bin/k6 run benchmarks/smoke.js
+```
+
+Load tests for the storefront, in [Grafana k6](https://k6.io).
+`./bin/k6` runs a pinned k6 in Docker, like the other `bin/` wrappers —
+nothing to install. Seven scenarios: a smoke pass, a capacity ramp, the read
+path at a held arrival rate, search against a listing of the same catalogue,
+cart mutations, a whole purchase end to end, and the write limiter under
+flood. **[benchmarks/README.md](../benchmarks/README.md)** has what each one
+measures, the knobs, and a measured baseline.
+
+Two things are worth knowing before running any of it.
+
+**Don't benchmark `php artisan serve`.** It is a development server with no
+cached config and no useful opcache; its numbers describe PHP's built-in
+server, not this application. `docker-compose.bench.yml` stands up the
+production image (FrankenPHP, opcache, the caches its entrypoint builds)
+on port 8099 with a database of its own — the bootstrap sequence is in that
+file's header.
+
+**The write limiter will stop you.** `throttle:storefront-write` allows 30
+requests a minute per IP and a load generator is one IP, so `cart.js` and
+`journey.js` count their rate per minute and fail on a single 429. See
+"Rate limiting" below.
+
+What came out of it on a four-core machine, in short: the production image
+holds about ten requests a second in classic FrankenPHP mode, with no request
+failing even when saturated; a cart mutation costs ~280 ms at p95 and a whole
+purchase ~2.2 s of server time; the write limiter accepts exactly its thirty
+and spends about half the cost of an accepted write on each one it refuses.
+And the finding worth acting on before shipping a real catalogue: with
+`SCOUT_DRIVER=collection`, search grows straight in line with catalogue size —
+273 ms at 7 products, 9.2 s at 2 007, while a collection listing of the same
+catalogue stays flat at ~460 ms. That is the indexless Scout driver
+`.env.example` warns about, with a number on it.
+
+`artisan bench:catalog --products=2000 --force` is what grows the catalogue to
+measure that; it generates products with deterministic names and spread
+prices, and no images (a media conversion per product costs minutes and
+changes nothing about the queries).
+
 ### Code quality (Pint, PHPStan, ESLint, Prettier, tsc)
 
 ```sh

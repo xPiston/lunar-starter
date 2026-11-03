@@ -61,6 +61,8 @@ Swap the engine later, or don't. Either way the decision stays yours.
 - 🚦 Rate limiting on every state-changing route
 - 🩺 Error tracking, dependency auditing, GitHub Actions CI
 - 🐳 FrankenPHP production image
+- 📊 k6 load tests against that image — capacity, search, cart, checkout
+  and the rate limiter, with a measured baseline
 - ✅ 208 tests against a real PostgreSQL — no mocked database
 
 | | |
@@ -278,6 +280,7 @@ that page; it cannot write it for you.
 | [Features](docs/features.md) | Checkout, stock, search, coupons, accounts, content and cart reminders in depth |
 | [Development](docs/development.md) | Install, configure, test, and every quality gate |
 | [Deployment](docs/deployment.md) | FrankenPHP production image and topology |
+| [Benchmarks](benchmarks/README.md) | k6 load tests, what each one measures, and what came back |
 
 ## ⚠️ Not included
 

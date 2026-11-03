@@ -1,0 +1,27 @@
+#!/bin/sh
+# k6 in Docker, same arrangement as bin/php: nothing to install on the host,
+# and the version is pinned so a number measured on one machine was measured
+# with the same tool as a number measured on another.
+#
+# --network host for two reasons: a benchmark target is usually a port on this
+# machine, and Docker's userland proxy adds a latency of its own that this
+# particular measurement cannot afford to carry.
+#
+# Only BASE_URL and the BENCH_* knobs are forwarded. k6 puts the whole
+# environment in __ENV, and a benchmark run has no business reading the
+# machine's secrets - the .env files stay out of this.
+exec docker run --rm --network host \
+  --user "$(id -u):$(id -g)" \
+  -v "$(pwd)":/app -w /app \
+  -e BASE_URL \
+  -e BENCH_RATE \
+  -e BENCH_DURATION \
+  -e BENCH_VUS \
+  -e BENCH_COUPON \
+  -e BENCH_P95_DOCUMENT \
+  -e BENCH_P95_NAVIGATION \
+  -e BENCH_P95_LISTING \
+  -e BENCH_P95_SEARCH \
+  -e BENCH_P95_WRITE \
+  -e BENCH_P95_JOURNEY \
+  grafana/k6:2.3.0 "$@"
