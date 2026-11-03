@@ -49,11 +49,22 @@ final class LunarProductCatalog implements ProductCatalog
      * does not: `media` (the full gallery) and `variants.values` (the option
      * labels) are only used on a product's own page, so they belong to
      * self::DETAIL and would be a hundred rows thrown away on a listing.
+     *
+     * `prices.priceable` looks circular - it is the variant the price hangs
+     * off, which is already loaded - and it is not optional. Lunar casts the
+     * `price` column through `Lunar\Base\Casts\Price`, which reads
+     * `$model->priceable->unit_quantity` to build its Price object, so merely
+     * *reading* a price loads its variant back one row at a time. Asking for
+     * it here is one query instead of one per variant.
+     *
+     * `tests/Feature/Storefront/QueryBudgetTest.php` is what keeps this list
+     * honest: it fails if a listing's query count grows with the number of
+     * products on the page.
      */
-    private const SUMMARY = ['defaultUrl', 'thumbnail', 'variants.prices.currency'];
+    private const SUMMARY = ['defaultUrl', 'thumbnail', 'variants.prices.currency', 'variants.prices.priceable'];
 
     /** The same, plus what only a single product's page renders. */
-    private const DETAIL = ['defaultUrl', 'thumbnail', 'media', 'variants.values', 'variants.prices.currency'];
+    private const DETAIL = ['defaultUrl', 'thumbnail', 'media', 'variants.values', 'variants.prices.currency', 'variants.prices.priceable'];
 
     public function __construct(private readonly ProductMapper $mapper) {}
 
@@ -414,26 +425,44 @@ final class LunarProductCatalog implements ProductCatalog
         return $product ? $this->mapper->toDomain($product) : null;
     }
 
+    /**
+     * Every published product's slug, for the sitemap.
+     *
+     * The published set is a subquery, not a list of ids fetched and sent
+     * back. It used to be `pluck('id')` followed by `whereIn` - which on a
+     * 10 000-product catalogue means ten thousand integers travelling to PHP
+     * and then ten thousand bind parameters travelling back, and
+     * `benchmarks/browse.js` found `/sitemap.xml` taking **1.08 s** because
+     * of it. The XML is not the expensive part: generating the 10 022 URLs
+     * costs 133 ms and serialising them 8 ms, measured.
+     *
+     * @return string[]
+     */
     public function listPublishedSlugs(): array
     {
-        $productIds = LunarProduct::query()
-            ->status('published')
-            ->channel(StorefrontSession::getChannel())
-            ->pluck('id');
-
-        return Url::query()
+        /** @var string[] $slugs */
+        $slugs = Url::query()
             ->where('element_type', (new LunarProduct)->getMorphClass())
-            ->whereIn('element_id', $productIds)
             ->where('default', true)
+            ->whereIn('element_id', LunarProduct::query()
+                ->status('published')
+                ->channel(StorefrontSession::getChannel())
+                ->select('lunar_products.id'))
             ->pluck('slug')
-            ->map(static fn (string $slug): string => $slug)
             ->all();
+
+        return $slugs;
     }
 
     public function listCollections(): array
     {
+        // `defaultUrl` eager-loaded because the navbar asks for this list on
+        // every storefront page (see HandleInertiaRequests): without it each
+        // collection fetches its own slug, so the shared navigation costs a
+        // query per entry on every single request.
         $collections = LunarCollection::query()
             ->channel(StorefrontSession::getChannel())
+            ->with('defaultUrl')
             ->get();
 
         return $collections

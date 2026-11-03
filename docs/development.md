@@ -201,7 +201,9 @@ file's header.
 **The write limiter will stop you.** `throttle:storefront-write` allows 30
 requests a minute per IP and a load generator is one IP, so `cart.js` and
 `journey.js` count their rate per minute and fail on a single 429. See
-"Rate limiting" below.
+"Rate limiting" below — including why a refused request still costs about half
+an accepted one, and why moving the limiter ahead of the session is not the
+fix it looks like.
 
 What came out of it on a four-core machine, in short: the production image
 holds about fifteen requests a second in classic FrankenPHP mode, flat to
@@ -219,10 +221,14 @@ write on each one it refuses.
   matching everything. It is now a database query: 917 ms.
 - A twelve-product collection page ran **106 queries**. The mapper reads
   `defaultUrl`, `thumbnail` and each variant's price, and none was
-  eager-loaded. Now 36, and the page went 258 ms → 163 ms.
+  eager-loaded. Now **10**, and the page went 258 ms → 67 ms.
 - `?sort=price_asc` on a 2 000-product collection took **5.35 s** as a
   correlated subquery, re-running `min(price)` per candidate product. Joined
   once as an aggregate: 280 ms.
+- `/sitemap.xml` took **1.08 s**, and not because of the XML — generating its
+  10 022 URLs costs 133 ms. It fetched every published product id into PHP and
+  sent all ten thousand back as bind parameters. Left as a subquery: one
+  query, 348 ms.
 
 `artisan bench:catalog --products=2000 --force` is what grows the catalogue to
 measure that; it generates products with deterministic names and spread
@@ -311,6 +317,27 @@ guest-friendly by design), so IP is the only identity available for an
 anonymous shopper. `tests/Feature/Storefront/RateLimitingTest.php` proves
 both limiters actually return `429` past their threshold, not just that
 they're declared somewhere.
+
+**A refusal is cheap, not free.** `benchmarks/rate-limit.js` flooded the write
+route from one IP: exactly 30 requests got through and 604 were refused, and a
+refused one cost 441 ms against 887 ms for an accepted one. `throttle:` is
+route middleware, so it runs after the `web` group — by the time a request is
+refused, Laravel has booted, decrypted the session cookie, read the session row
+from Postgres and verified the CSRF token. The limiter protects the cart, not
+the framework.
+
+Moving it ahead of the session does not work, and the reasons are worth knowing
+before anyone tries. `Middleware::prependToPriorityList()` is a no-op here —
+`ThrottleRequests` is already in Laravel's priority list and the merge skips
+anything already present — so it would mean replacing the whole list and
+pinning framework internals into `bootstrap/app.php`. And that order is
+deliberate: `ThrottleRequests::resolveRequestSignature()` keys on
+`$request->user()` when there is one, which is exactly why Laravel runs it
+after the session and auth. `routes/auth.php` has two `throttle:6,1` routes
+inside `Route::middleware('auth')`; the reorder would silently re-key them from
+per-user to per-IP and put a whole office behind one shared budget. At the
+scale where the cost of a refusal matters, the answer belongs in front of the
+application, not inside it.
 
 ### Error tracking (Sentry SDK -> GlitchTip)
 

@@ -193,25 +193,37 @@ switching to one is still only `SCOUT_DRIVER` plus `artisan scout:import`.
 
 ### What a query log found that the clock did not
 
-Two more, both from reading the queries behind a single page rather than
-timing it:
+The rest came from reading the queries behind a single page rather than
+timing it. All measured at 10 007 products:
 
-| Measurement                                     | Before     | After  |
-| ----------------------------------------------- | ---------- | ------ |
-| Queries for one 12-product collection page      | **106**    | 36     |
-| That page, 10 007 products                      | 258 ms     | 163 ms |
-| `?sort=price_asc` on a 2 000-product collection | **5.35 s** | 280 ms |
+| Measurement                                           | Before                | After      |
+| ----------------------------------------------------- | --------------------- | ---------- |
+| Queries for one 12-product collection page            | **106**               | **10**     |
+| That page                                             | 258 ms                | **67 ms**  |
+| `?sort=price_asc` on a 2 000-product collection       | **5.35 s**            | 280 ms     |
+| `/sitemap.xml`                                        | 1.08 s                | **348 ms** |
+| Widest query behind the sitemap                       | **10 007 parameters** | 8          |
+| Queries for the navbar's collection list, per request | 8                     | 2          |
 
-The 106 queries were an N+1 hiding under a page that looked fine: 24 for the
-variants' prices, 24 more for those prices' currencies, 24 re-reading the
-variant each price belongs to, 12 thumbnails and 12 slugs - because the
-mapper reads `defaultUrl`, `thumbnail` and each variant's price, and none of
-the three was eager-loaded.
+The 106 queries were an N+1 hiding under a page that looked fine, because
+`ProductMapper::toSummary()` reads `defaultUrl`, `thumbnail` and each
+variant's price and none of the three was eager-loaded. The last of them is
+worth knowing about: Lunar casts the `price` column through a cast that reads
+`$model->priceable->unit_quantity`, so merely _reading_ a price loads its
+variant back, one row at a time. That one survived the first pass and was
+caught by `QueryBudgetTest`, which asserts a listing's query count does not
+grow with the number of products on the page.
 
-The price sort was a correlated subquery, so the database re-ran
-`min(price)` for every candidate product. Aggregating the price table once
-and joining it is the same answer in one pass. Before the search work this
-was invisible; afterwards it was the slowest page in the suite.
+The price sort was a correlated subquery, so the database re-ran `min(price)`
+for every candidate product. Aggregating the price table once and joining it
+is the same answer in one pass.
+
+The sitemap looked like a case for chunked index files - its own controller
+said so - and it was not. Generating 10 022 URLs costs 133 ms and serialising
+them 8 ms, both measured; the second was spent fetching every published
+product id into PHP and sending all ten thousand back as bind parameters.
+Left as a subquery it is one query, eight parameters, 24 ms. The sitemap is
+still one document, which the spec allows up to 50 000 URLs.
 
 ### Cart, checkout, and the limiter
 
@@ -229,19 +241,38 @@ is refused, Laravel has booted, decrypted the session cookie, read the session
 row from Postgres and verified the CSRF token. A 429 costs about half an
 accepted write - the limiter protects the cart, not the framework. At twenty
 refusals a second that is real work being done for traffic already decided
-against, and moving the limiter ahead of the session would be the fix.
+against.
+
+Moving the limiter ahead of the session is the obvious fix and it is the wrong
+one, for three reasons worth writing down so nobody has to find them twice.
+`Middleware::prependToPriorityList()` cannot do it - `ThrottleRequests` is
+already in Laravel's priority list, and the merge skips any middleware already
+present - so it would mean replacing the whole list and pinning framework
+internals into `bootstrap/app.php`. And the order is deliberate:
+`ThrottleRequests::resolveRequestSignature()` keys on `$request->user()` when
+there is one, which is why Laravel runs it after the session and auth.
+`routes/auth.php` has two `throttle:6,1` routes inside `Route::middleware('auth')`,
+so the reorder would silently re-key them from per-user to per-IP and put a
+whole office behind one shared budget. The cost of a refused request is real;
+at the scale where it matters, the answer is in front of the application rather
+than inside it.
 
 ### What is still the tail
 
-At 10 007 products, `browse.js` at 8/s holds a p90 of 283 ms and a document
-p95 of **1.02 s**. The p95 is one endpoint: `/sitemap.xml`, which is 3% of
-the mix and serialises 10 022 URLs into 825 KB in 1.08 s. It is valid (Google
-allows 50 000 per file) and it is a crawler's problem rather than a shopper's,
-which is why it is written down here instead of fixed - `SitemapController`'s
-own comment already names chunked sitemap index files as the answer.
+At 10 007 products, `browse.js` at 8/s gives a document p95 of **400 ms** and
+a navigation p95 of **1.03 s**. Three runs, because one sample is not a
+measurement: 1.02, 1.03, 1.04 s on the navigation side and 396, 402, 413 ms on
+the document side. Nothing is dropped and no request fails.
 
-It also means the shipped `BENCH_P95_DOCUMENT` of 500 ms will fail on a large
-catalogue because of that one URL. Re-baseline, as above.
+The navigation p95 is search, and only search: `search.js` puts it at 857 ms
+uncontended on this catalogue, against 261 ms for a collection listing. That
+is the linear scan described above doing exactly what a linear scan does, so
+`BENCH_P95_NAVIGATION` will fail on a catalogue this size until a real engine
+is configured. It is the one threshold in the suite that says something about
+the catalogue rather than about a regression.
+
+Everything else is flat: the document side has no tail worth naming now that
+the sitemap costs 348 ms, and the median navigation is 282 ms.
 
 ## Growing the catalogue
 
