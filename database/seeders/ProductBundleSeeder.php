@@ -75,6 +75,12 @@ final class ProductBundleSeeder extends Seeder
         ProductBundle::whereNotIn('slug', array_column(self::BUNDLES, 'slug'))->get()
             ->each(static function (ProductBundle $stale): void {
                 $stale->items()->delete();
+                // The price is a row of its own, keyed by morph, and nothing
+                // cascades: deleting the bundle without it leaves a price
+                // belonging to nobody — seven of them had already piled up.
+                Price::where('priceable_type', $stale->getMorphClass())
+                    ->where('priceable_id', $stale->id)
+                    ->delete();
                 $stale->delete();
             });
 

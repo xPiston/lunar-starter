@@ -10,6 +10,7 @@ use Database\Seeders\ProductBundleSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Lunar\Models\CartLine;
 use Lunar\Models\Collection;
 use Lunar\Models\Product;
 use Lunar\Models\ProductOption;
@@ -179,6 +180,17 @@ final class DemoCatalogCommand extends Command
             $variants = ProductVariant::withTrashed()->where('product_id', $product->id)->get();
 
             foreach ($variants as $variant) {
+                // The carts come first, and they are the whole reason this
+                // line exists: a cart line pointing at a deleted variant
+                // cannot be priced, and it takes down every page for the
+                // session holding it. LunarCartGateway now drops such a line
+                // when it meets one, but leaving a hundred of them behind and
+                // relying on that is leaving a trap.
+                CartLine::query()
+                    ->where('purchasable_type', $variant->getMorphClass())
+                    ->where('purchasable_id', $variant->id)
+                    ->delete();
+
                 $variant->prices()->delete();
                 $variant->values()->detach();
                 $variant->forceDelete();

@@ -36,7 +36,51 @@ final class LunarCartGateway implements CartGateway
 
     public function current(): Cart
     {
+        $this->dropDeadLines();
+
         return $this->mapper->toDomain(CartSession::current());
+    }
+
+    /**
+     * Removes lines whose purchasable no longer exists, before Lunar is asked
+     * to price the cart.
+     *
+     * Without this, deleting a product takes every page down for anybody
+     * holding it in their basket: `CartSession::current()` recalculates on
+     * retrieval, and the first thing it does with a line is hand its
+     * purchasable to the pricing manager — which is null, and which throws a
+     * TypeError before this application sees the cart at all. Nothing in the
+     * storefront catches that, so the session is stuck: every page 500s,
+     * including the cart page the visitor would have used to remove the line.
+     *
+     * It is not a hypothetical. Reseeding the demo catalogue deleted the
+     * variants that thirty-one lines in twenty-eight carts pointed at, and
+     * every one of those sessions broke. A real shop reaches the same state
+     * the first time it withdraws a product somebody had added.
+     *
+     * Dropping the line is the right answer rather than keeping a tombstone:
+     * a purchasable that cannot be loaded cannot be priced, named or
+     * fulfilled, and a cart is a draft — it is not history, which is what
+     * orders are for. A soft-deleted variant reads as missing here too, and
+     * that is also right: it has been withdrawn from sale.
+     *
+     * One query per line, by morph; a cart holds a handful of lines, and the
+     * alternative is grouping by type to save a query on a path that already
+     * recalculates the whole cart.
+     */
+    private function dropDeadLines(): void
+    {
+        $cartId = Session::get(CartSession::getSessionKey());
+
+        if (! $cartId) {
+            return;
+        }
+
+        CartLine::query()
+            ->where('cart_id', $cartId)
+            ->get()
+            ->filter(static fn (CartLine $line): bool => $line->purchasable === null)
+            ->each(static fn (CartLine $line) => $line->delete());
     }
 
     /**
