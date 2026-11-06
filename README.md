@@ -114,6 +114,12 @@ cp .env.example .env && ./bin/artisan key:generate
 Storefront on **http://localhost:8000**, admin on **/lunar**, inbox on
 **http://localhost:8025**.
 
+> 🧰 The demo catalogue is a French DIY shop: fourteen aisles, three hundred
+> odd products, photographs fetched from Wikimedia Commons at seed time. It
+> takes a while for that reason — `./bin/artisan demo:catalog --fresh
+> --limit=3` builds a small version of it in a minute, and
+> [Product images](docs/development.md#product-images) explains the rest.
+
 > 💡 Payments need Stripe test keys — see
 > [Configuring Stripe](docs/development.md#configuring-stripe-needed-to-test-payment).
 
@@ -236,7 +242,7 @@ Items are keyed on `item_id`, and it is the **same string at every stage**: the
 purchasable's own reference — a variant's SKU, a bundle's slug. The product
 page reads it off the variant, the cart and the order read it off their line,
 and Lunar copies it from one to the other when the order is placed. That
-identity is what makes the funnel a funnel; key a shirt by sku when it is
+identity is what makes the funnel a funnel; key a drill by sku when it is
 viewed and by name once it is in the basket, and the report shows a view and a
 purchase of two unrelated products. Pinned by a test that follows one
 reference from `cart.lines.0.sku` to `order.lines.0.sku`.

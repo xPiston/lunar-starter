@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Three slides for the homepage slider, with generated placeholder banners -
  * see the trait for why they are generated rather than downloaded.
+ *
+ * Generated and not searched, unlike the product photographs: a banner is the
+ * first thing a real shop replaces with its own artwork, and a stock photo
+ * here would only invite somebody to ship it.
  */
 final class HeroSlideSeeder extends Seeder
 {
@@ -24,19 +28,19 @@ final class HeroSlideSeeder extends Seeder
      */
     private const SLIDES = [
         [
-            'title' => 'New season, new arrivals',
-            'subtitle' => 'Fresh pieces added every week.',
+            'title' => 'Tout pour attaquer le chantier',
+            'subtitle' => 'Outillage, quincaillerie et matériaux, en stock et prêts à partir.',
+            'colours' => [[180, 83, 9], [69, 26, 3]],
+        ],
+        [
+            'title' => 'La peinture, de la sous-couche à la finition',
+            'subtitle' => 'Teintes, rouleaux, enduits : une pièce repeinte en un week-end.',
             'colours' => [[30, 64, 175], [15, 23, 42]],
         ],
         [
-            'title' => 'Everyday essentials',
-            'subtitle' => 'The basics, done properly.',
+            'title' => 'Le jardin se prépare maintenant',
+            'subtitle' => 'Outils à main, arrosage et terreau pour la saison qui vient.',
             'colours' => [[21, 128, 61], [12, 45, 30]],
-        ],
-        [
-            'title' => 'Carry it all',
-            'subtitle' => 'Bags and accessories built to last.',
-            'colours' => [[161, 98, 7], [69, 26, 3]],
         ],
     ];
 
